@@ -1,5 +1,5 @@
 /* Variables CSS */
-/* .root {
+.root {
   --color-primary: #000000;
   --color-secondary: #ffffff;
   --color-accent: #00d084;
@@ -15,7 +15,7 @@
   --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   --border-radius: 8px;
   --transition: all 0.3s ease;
-}    */
+}   
 
 /* Admin Container */
 .adminContainer {
