@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import styles from '../../../styles/Admin.module.css';
+import styles from '../../../styles/admin.module.css';
 
 interface ProfileSectionProps {
   userData: any;
@@ -26,41 +26,41 @@ export default function ProfileSection({ userData }: ProfileSectionProps) {
   };
 
   return (
-    <div className={styles.profileSection}>
-      <div className={styles.sectionHeader}>
+    <div className="profileSectio">
+      <div className="sectionHeade">
         <h2>Profil</h2>
         <p>Gérez les informations de votre compte</p>
       </div>
       
-      <div className={styles.profileContent}>
-        <div className={styles.profileTabs}>
+      <div className="profileConten">
+        <div className="profileTab">
           <button 
-            className={`${styles.tabButton} ${activeTab === 'info' ? styles.tabActive : ''}`}
+            className={` tabButton ${activeTab === 'info' ? 'tabActive' : ''}`}
             onClick={() => setActiveTab('info')}
           >
             Informations
           </button>
           <button 
-            className={`${styles.tabButton} ${activeTab === 'security' ? styles.tabActive : ''}`}
+            className={` tabButton ${activeTab === 'security' ? 'tabActive' : ''}`}
             onClick={() => setActiveTab('security')}
           >
             Sécurité
           </button>
           <button 
-            className={`${styles.tabButton} ${activeTab === 'settings' ? styles.tabActive : ''}`}
+            className={` tabButton ${activeTab === 'settings' ? 'tabActive' : ''}`}
             onClick={() => setActiveTab('settings')}
           >
             Paramètres
           </button>
         </div>
         
-        <div className={styles.profileTabContent}>
+        <div className="profileTabConten">
           {activeTab === 'info' && (
-            <div className={styles.profileFormCard}>
+            <div className="profileFormCar">
               <h3>Informations personnelles</h3>
               <form onSubmit={handleSubmit}>
-                <div className={styles.formRow}>
-                  <div className={styles.formGroup}>
+                <div className="formRo">
+                  <div className="formGrou">
                     <label>Nom de la boutique</label>
                     <input
                       type="text"
@@ -70,7 +70,7 @@ export default function ProfileSection({ userData }: ProfileSectionProps) {
                     />
                   </div>
                   
-                  <div className={styles.formGroup}>
+                  <div className="formGrou">
                     <label>URL de la boutique</label>
                     <input
                       type="url"
@@ -81,8 +81,8 @@ export default function ProfileSection({ userData }: ProfileSectionProps) {
                   </div>
                 </div>
                 
-                <div className={styles.formRow}>
-                  <div className={styles.formGroup}>
+                <div className="formRo">
+                  <div className="formGrou">
                     <label>Votre nom</label>
                     <input
                       type="text"
@@ -92,7 +92,7 @@ export default function ProfileSection({ userData }: ProfileSectionProps) {
                     />
                   </div>
                   
-                  <div className={styles.formGroup}>
+                  <div className="formGrou">
                     <label>Email</label>
                     <input
                       type="email"
@@ -103,7 +103,7 @@ export default function ProfileSection({ userData }: ProfileSectionProps) {
                   </div>
                 </div>
                 
-                <button type="submit" className={styles.saveButton}>
+                <button type="submit" className="saveButto">
                   Enregistrer les modifications
                 </button>
               </form>
@@ -111,21 +111,21 @@ export default function ProfileSection({ userData }: ProfileSectionProps) {
           )}
           
           {activeTab === 'security' && (
-            <div className={styles.profileFormCard}>
+            <div className="profileFormCar">
               <h3>Paramètres de sécurité</h3>
-              <div className={styles.securitySettings}>
-                <div className={styles.securityItem}>
+              <div className="securitySetting">
+                <div className="securityIte">
                   <h4>Mot de passe</h4>
                   <p>Définissez un mot de passe fort pour protéger votre compte</p>
-                  <button className={styles.changePasswordButton}>
+                  <button className="changePasswordButto">
                     Modifier le mot de passe
                   </button>
                 </div>
                 
-                <div className={styles.securityItem}>
+                <div className="securityIte">
                   <h4>Connexions actives</h4>
                   <p>Gérez les appareils connectés à votre compte</p>
-                  <button className={styles.viewSessionsButton}>
+                  <button className="viewSessionsButto">
                     Voir les sessions actives
                   </button>
                 </div>
@@ -134,31 +134,31 @@ export default function ProfileSection({ userData }: ProfileSectionProps) {
           )}
           
           {activeTab === 'settings' && (
-            <div className={styles.profileFormCard}>
+            <div className="profileFormCar">
               <h3>Paramètres de l'application</h3>
-              <div className={styles.appSettings}>
-                <div className={styles.settingItem}>
+              <div className="appSetting">
+                <div className="settingIte">
                   <h4>Notifications</h4>
                   <p>Configurez les notifications que vous souhaitez recevoir</p>
-                  <div className={styles.toggleSwitch}>
+                  <div className="toggleSwitc">
                     <input type="checkbox" id="notifications" defaultChecked />
                     <label htmlFor="notifications"></label>
                   </div>
                 </div>
                 
-                <div className={styles.settingItem}>
+                <div className="settingIte">
                   <h4>Mode sombre</h4>
                   <p>Activez le mode sombre pour un confort visuel</p>
-                  <div className={styles.toggleSwitch}>
+                  <div className="toggleSwitc">
                     <input type="checkbox" id="darkMode" />
                     <label htmlFor="darkMode"></label>
                   </div>
                 </div>
                 
-                <div className={styles.settingItem}>
+                <div className="settingIte">
                   <h4>Langue</h4>
                   <p>Choisissez la langue de l'interface</p>
-                  <select className={styles.languageSelect}>
+                  <select className="languageSelec">
                     <option value="fr">Français</option>
                     <option value="en">English</option>
                     <option value="es">Español</option>
