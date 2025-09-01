@@ -54,6 +54,7 @@ export async function getRates(from: any, to: any, parcels: any[], options: any 
       id: rate.object_id,
       carrier: rate.provider,
       service: rate.servicelevel?.name,
+      img: rate.provider_image_200,
       price: rate.amount,
       currency: rate.currency,
       estimated_days: rate.estimated_days,

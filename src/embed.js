@@ -32,21 +32,24 @@ function DevaitoWidget({ shopId }) {
         const slug = a.href.split("/product/")[1]?.split("/")[0];
         if (slug && !slugs.includes(slug)) slugs.push(slug);
       });
+      debugLog("[Devaito] Page d&eacute;tect&eacute;e: Panier");
+      alert(`Devaito: Page Panier détectée avec slugs: ${slugs.join(", ")}`);
       return slugs;
     }
     const slug = path.split("/product/")[1]?.split("/")[0];
+    debugLog("[Devaito] Page d&eacute;tect&eacute;e: Produit");
+    alert(`Devaito: Page Produit détectée avec slug: ${slug}`);
     return slug ? [slug] : [];
   };
 
-  // --- Récupère shop+produits ---
+  // --- Fetch shop + produits ---
   const fetchShopData = async () => {
     try {
       let slugs = getSlugs();
-      if (!slugs.length) 
-        // {throw new Error("Aucun slug détecté");}
-        {slugs = ["product-2"];}
+      if (!slugs.length) slugs = ["product-2"];
+      debugLog("[Devaito] Requête shop avec slugs:", slugs);
+      alert(`Devaito: Récupération des produits...`);
 
-      debugLog("Requête shop avec slugs:", slugs);
       const res = await fetch(`${CONFIG.API_BASE}/get_shop_by_id`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -57,26 +60,30 @@ function DevaitoWidget({ shopId }) {
       const data = await res.json();
 
       setShopData(data.shop);
-      setProducts(data.products.map((p) => ({
+      const prods = data.products.map((p) => ({
         name: p.name,
         quantity: p.quantity,
         maxQuantity: p.quantity || 99,
         dimensions: p.dimensions,
         fromAddress: p.shippingAddress,
         usedDefaultDims: p.usedDefaultDims,
-      })));
-      return true;
+      }));
+      setProducts(prods);
+      debugLog("[Devaito] Produits récupérés:", prods);
+      alert(`Devaito: ${prods.length} produits détectés`);
+      return prods;
     } catch (err) {
       setError(err.message);
-      debugLog("Erreur shop:", err);
-      return false;
+      debugLog("[Devaito] Erreur shop:", err);
+      alert(`Devaito Erreur: ${err.message}`);
+      return [];
     }
   };
 
   // --- Prépare payload Shippo ---
-  const prepareRequests = () => {
+  const prepareRequests = (currentProducts) => {
     const groups = {};
-    products.forEach((prod) => {
+    currentProducts.forEach((prod) => {
       const key = JSON.stringify(prod.fromAddress);
       if (!groups[key]) groups[key] = { from: prod.fromAddress, parcels: [] };
       for (let i = 0; i < prod.quantity; i++) groups[key].parcels.push(prod.dimensions);
@@ -91,35 +98,38 @@ function DevaitoWidget({ shopId }) {
 
     if (!toAddress.street1 || !toAddress.city || !toAddress.zip || !toAddress.country || !toAddress.email) {
       setError("Adresse de livraison incomplète");
+      alert("Devaito: Adresse de livraison incomplète");
       return;
     }
 
     setLoading(true);
+    setIsVisible(true); // Déplier immédiatement
     try {
-      // 1. Charger shop + produits avant estimation
-      const shopOk = await fetchShopData();
-      if (!shopOk) throw new Error("Impossible de charger le shop");
+      const currentProducts = await fetchShopData();
+      if (!currentProducts.length) throw new Error("Aucun produit pour estimation");
 
-      if (!products.length) throw new Error("Aucun produit pour estimation");
-
-      // 2. Préparer et envoyer les requêtes (Shippo simulé)
-      const reqs = prepareRequests();
-      debugLog("Payload Shippo:", reqs);
+      const reqs = prepareRequests(currentProducts);
+      debugLog("[Devaito] Payload Shippo préparé:", reqs);
+      alert("Devaito: Préparation estimation en cours...");
 
       const allRates = [];
       for (const req of reqs) {
-        // Simule une estimation
         const r = await fetch(`${CONFIG.API_BASE}/getRates`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(req),
         });
         if (!r.ok) throw new Error("Erreur API Shippo");
-        allRates.push(...await r.json());
+        const rates = await r.json();
+        allRates.push(...rates);
       }
+
       setResults(allRates);
+      debugLog("[Devaito] Estimation reçue:", allRates);
+      alert("Devaito: Estimation terminée");
     } catch (err) {
       setError(err.message);
+      alert(`Devaito Erreur: ${err.message}`);
     } finally {
       setLoading(false);
     }
@@ -135,8 +145,8 @@ function DevaitoWidget({ shopId }) {
   // --- UI ---
   return (
     <div style={styles.widget}>
-      <button style={styles.toggleButton} onClick={() => setIsVisible(!isVisible)}>
-        Estimation livraison {isVisible ? "▲" : "▼"}
+      <button style={styles.toggleButton} onClick={runEstimation}>
+        {loading ? "Calcul..." : `Estimation livraison ${isVisible ? "▲" : "▼"}`}
       </button>
       {isVisible && (
         <div style={styles.content}>
@@ -180,10 +190,7 @@ function DevaitoWidget({ shopId }) {
             </div>
           )}
 
-          {/* Bouton */}
-          <button style={styles.estimateButton} onClick={runEstimation} disabled={loading}>
-            {loading ? "Calcul..." : "Estimer le prix"}
-          </button>
+          {/* Résultats */}
           {error && <div style={styles.error}>{error}</div>}
           {results && (
             <div style={styles.results}>
@@ -221,9 +228,12 @@ function initWidget() {
       if (!shopId) return console.error("data-shop-id manquant");
       el.dataset.initialized = "true";
       ReactDOM.createRoot(el).render(<DevaitoWidget shopId={shopId} />);
+      debugLog("[Devaito] Widget initialisé");
+      alert("Devaito Widget initialisé");
     }
   });
 }
+
 document.readyState === "loading"
   ? document.addEventListener("DOMContentLoaded", initWidget)
   : initWidget();

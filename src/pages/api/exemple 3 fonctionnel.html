@@ -1,0 +1,459 @@
+ <div id="devaito-widget" data-shop-id="68b5be1d28307592ea3c34b7"></div>
+<script type="text/javascript">
+// Vérifier si le widget a déjà été initialisé
+if (typeof window.devaitoInitialized === 'undefined') {
+  window.devaitoInitialized = true;
+  
+  (function(){
+    const CONFIG = {
+      API_BASE: "http://localhost:3000/api",
+      DEBUG: true
+    };
+    
+    // Logger simplifié
+    const prodLog = {
+      info: (...args) => console.log("[DEV]", ...args),
+      error: (...args) => console.error("[DEV-ERR]", ...args),
+      debug: (...args) => CONFIG.DEBUG && console.log("[DEV-DBG]", ...args)
+    };
+
+    prodLog.info("Initialisation du widget");
+
+    function initWidget() {
+      const container = document.getElementById("devaito-widget");
+      if(!container) {
+        prodLog.error("Container non trouvé");
+        return;
+      }
+
+      if (container.querySelector("#devaito-toggle")) {
+        prodLog.info("Widget déjà initialisé");
+        return;
+      }
+
+      const shopId = container.getAttribute("data-shop-id");
+      if(!shopId) {
+        prodLog.error("data-shop-id manquant");
+        return;
+      }
+
+      prodLog.info(`Boutique: ${shopId}`);
+
+      // Création du toggle avec case à cocher
+      var toggleContainer = document.createElement("label");
+      toggleContainer.htmlFor = "devaito-toggle-checkbox";
+      toggleContainer.style.cssText = "display:flex; justify-content:space-between; align-items:center; cursor:pointer; margin:10px 0; padding:8px; border-radius:6px; background:#f8f9fa;";
+      
+      var toggleText = document.createElement("span");
+      toggleText.textContent = "Estimation livraison";
+      toggleText.style.cssText = "font-weight:600; color:#333;";
+      
+      var checkboxContainer = document.createElement("div");
+      checkboxContainer.style.cssText = "position:relative; width:20px; height:20px;";
+      
+      var checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.id = "devaito-toggle-checkbox";
+      checkbox.style.cssText = "position:absolute; opacity:0; width:100%; height:100%; cursor:pointer; z-index:2;";
+      
+      var customCheckbox = document.createElement("div");
+      customCheckbox.style.cssText = "width:20px; height:20px; border:2px solid #00d084; border-radius:4px; background:white; position:relative; z-index:1;";
+      
+      var checkmark = document.createElement("div");
+      checkmark.style.cssText = "position:absolute; top:2px; left:6px; width:6px; height:12px; border: solid #00d084; border-width: 0 2px 2px 0; transform: rotate(45deg); display:none; z-index:1;";
+      customCheckbox.appendChild(checkmark);
+      
+      checkboxContainer.appendChild(checkbox);
+      checkboxContainer.appendChild(customCheckbox);
+      
+      toggleContainer.appendChild(toggleText);
+      toggleContainer.appendChild(checkboxContainer);
+
+      // Contenu du widget
+      var content = document.createElement("div");
+      content.id = "devaito-content";
+      content.style.display = "none";
+      content.style.background = "#f9f9f9";
+      content.style.borderRadius = "8px";
+      content.style.padding = "15px";
+      content.style.margin = "10px 0";
+      content.style.boxShadow = "0 2px 10px rgba(0,0,0,0.05)";
+
+      // Formulaire d'adresse avec autocomplétion
+      var fields = [
+        {name: "name", placeholder: "Nom complet", type: "text", autocomplete: "name"},
+        {name: "street", placeholder: "Adresse", type: "text", autocomplete: "street-address"},
+        {name: "city", placeholder: "Ville", type: "text", autocomplete: "address-level2"},
+        {name: "state", placeholder: "Région", type: "text", autocomplete: "address-level1"},
+        {name: "zip", placeholder: "Code postal", type: "text", autocomplete: "postal-code"},
+        {name: "phone", placeholder: "Téléphone", type: "tel", autocomplete: "tel"},
+        {name: "email", placeholder: "Email", type: "email", autocomplete: "email"}
+      ];
+      
+      var inputs = [];
+      fields.forEach(function(field){
+        var input = document.createElement("input");
+        input.type = field.type;
+        input.placeholder = field.placeholder;
+        input.name = field.name;
+        input.autocomplete = field.autocomplete;
+        input.className = "devaito-input";
+        input.style.cssText = "width:100%;margin-bottom:10px;padding:10px;border:1px solid #e0e0e0;border-radius:6px;font-size:14px;";
+        
+        // Valeurs par défaut pour la démo
+        if(field.name === "street") input.value = "123 Street";
+        if(field.name === "city") input.value = "Paris";
+        if(field.name === "state") input.value = "Île-de-France";
+        if(field.name === "zip") input.value = "75000";
+        if(field.name === "phone") input.value = "+1 23294349";
+        if(field.name === "email") input.value = "client@exemple.com";
+        
+        content.appendChild(input);
+        inputs.push(input);
+      });
+      
+      // Pays avec tous les options
+      var selectLabel = document.createElement("label");
+      selectLabel.textContent = "Pays";
+      selectLabel.style.cssText = "display:block; margin-bottom:5px; font-weight:500;";
+      content.appendChild(selectLabel);
+      
+      var select = document.createElement("select");
+      select.name = "country";
+      select.autocomplete = "country";
+      select.className = "devaito-input";
+      select.style.cssText = "width:100%;margin-bottom:15px;padding:10px;border:1px solid #e0e0e0;border-radius:6px;font-size:14px;";
+      
+      // Liste complète des pays
+      var countries = [
+        "Afghanistan", "Albanie", "Algérie", "Allemagne", "Andorre", "Angola", "Antigua-et-Barbuda", 
+        "Arabie saoudite", "Argentine", "Arménie", "Australie", "Autriche", "Azerbaïdjan", 
+        "Bahamas", "Bahreïn", "Bangladesh", "Barbade", "Belgique", "Belize", "Bénin", "Bhoutan", 
+        "Biélorussie", "Birmanie", "Bolivie", "Bosnie-Herzégovine", "Botswana", "Brésil", "Brunei", 
+        "Bulgarie", "Burkina Faso", "Burundi", 
+        "Cambodge", "Cameroun", "Canada", "Cap-Vert", "Chili", "Chine", "Chypre", "Colombie", 
+        "Comores", "Congo-Brazzaville", "Congo-Kinshasa", "Corée du Nord", "Corée du Sud", 
+        "Costa Rica", "Côte d'Ivoire", "Croatie", "Cuba", 
+        "Danemark", "Djibouti", "Dominique", 
+        "Égypte", "Émirats arabes unis", "Équateur", "Érythrée", "Espagne", "Estonie", 
+        "Eswatini", "États-Unis", "Éthiopie", 
+        "Fidji", "Finlande", "France", 
+        "Gabon", "Gambie", "Géorgie", "Ghana", "Grèce", "Grenade", "Guatemala", "Guinée", 
+        "Guinée équatoriale", "Guinée-Bissau", "Guyana", 
+        "Haïti", "Honduras", "Hongrie", 
+        "Îles Cook", "Îles Marshall", "Îles Salomon", "Inde", "Indonésie", "Irak", "Iran", 
+        "Irlande", "Islande", "Israël", "Italie", 
+        "Jamaïque", "Japon", "Jordanie", 
+        "Kazakhstan", "Kenya", "Kirghizistan", "Kiribati", 
+        "Koweït", 
+        "Laos", "Lesotho", "Lettonie", "Liban", "Liberia", "Libye", "Liechtenstein", "Lituanie", 
+        "Luxembourg", 
+        "Macédoine du Nord", "Madagascar", "Malaisie", "Malawi", "Maldives", "Mali", "Malte", 
+        "Maroc", "Maurice", "Mauritanie", "Mexique", "Micronésie", "Moldavie", "Monaco", 
+        "Mongolie", "Monténégro", "Mozambique", 
+        "Namibie", "Nauru", "Népal", "Nicaragua", "Niger", "Nigeria", "Niue", "Norvège", 
+        "Nouvelle-Zélande", 
+        "Oman", "Ouganda", "Ouzbékistan", 
+        "Pakistan", "Palaos", "Palestine", "Panama", "Papouasie-Nouvelle-Guinée", "Paraguay", 
+        "Pays-Bas", "Pérou", "Philippines", "Pologne", "Portugal", 
+        "Qatar", 
+        "Roumanie", "Royaume-Uni", "Russie", "Rwanda", 
+        "Saint-Christophe-et-Niévès", "Sainte-Lucie", "Saint-Marin", "Saint-Vincent-et-les-Grenadines", 
+        "Salvador", "Samoa", "Sao Tomé-et-Principe", "Sénégal", "Serbie", "Seychelles", 
+        "Sierra Leone", "Singapour", "Slovaquie", "Slovénie", "Somalie", "Soudan", "Soudan du Sud", 
+        "Sri Lanka", "Suède", "Suisse", "Suriname", "Syrie", 
+        "Tadjikistan", "Tanzanie", "Tchad", "République tchèque", "Thaïlande", "Timor oriental", 
+        "Togo", "Tonga", "Trinité-et-Tobago", "Tunisie", "Turkménistan", "Turquie", "Tuvalu", 
+        "Ukraine", "Uruguay", 
+        "Vanuatu", "Vatican", "Venezuela", "Vietnam", 
+        "Yémen", 
+        "Zambie", "Zimbabwe"
+      ];
+      
+      countries.forEach(function(country) {
+        var option = document.createElement("option"); 
+        option.value = country;
+        option.text = country;
+        if (country === "France") option.selected = true;
+        select.appendChild(option);
+      });
+      
+      content.appendChild(select);
+
+      // Container produits
+      var productsContainer = document.createElement("div");
+      productsContainer.id = "devaito-products";
+      productsContainer.style.marginBottom = "15px";
+      content.appendChild(productsContainer);
+
+      // Bouton estimer le prix
+      var estimateBtn = document.createElement("button");
+      estimateBtn.id = "devaito-estimate";
+      estimateBtn.textContent = "Estimer le prix";
+      estimateBtn.style.cssText = "width:100%;padding:12px;border-radius:8px;border:none;background:#00d084;color:#ffffff;font-weight:600;cursor:pointer;transition:all 0.3s ease;font-size:16px;"; 
+      content.appendChild(estimateBtn);
+
+      // Div erreurs
+      var errorDiv = document.createElement("div");
+      errorDiv.id="devaito-error";
+      errorDiv.style.color="#dc3545"; 
+      errorDiv.style.marginTop="10px";
+      errorDiv.style.fontSize="14px";
+      content.appendChild(errorDiv);
+      
+      // Div résultats
+      var resultsDiv = document.createElement("div");
+      resultsDiv.id="devaito-results";
+      resultsDiv.style.marginTop="15px";
+      content.appendChild(resultsDiv);
+
+      container.appendChild(toggleContainer);
+      container.appendChild(content);
+
+      var products = [];
+
+      // Gestionnaire pour la case à cocher
+      checkbox.onchange = function() {
+        if(this.checked){
+          content.style.display="block";
+          checkmark.style.display="block";
+          customCheckbox.style.background = "#00d084";
+          prodLog.debug("Widget activé");
+        }else{
+          content.style.display="none";
+          checkmark.style.display="none";
+          customCheckbox.style.background = "white";
+          prodLog.debug("Widget désactivé");
+        }
+      };
+
+      // Récupération slugs
+      function getSlugs(){
+        var path = window.location.pathname.toLowerCase();
+        prodLog.info(`Page: ${path}`);
+        
+        if(path.includes("/cart") || path.includes("/panier")){
+          prodLog.info("Page panier détectée");
+          var slugs=[];
+          document.querySelectorAll('a[href*="/product/"], a[href*="/products/"], [data-product-slug]').forEach(function(a){
+            var slug = a.href && a.href.split("/product/")[1]?.split("/")[0] || 
+                       a.href && a.href.split("/products/")[1]?.split("/")[0] ||
+                       a.getAttribute('data-product-slug');
+                       
+            if(slug && slugs.indexOf(slug)===-1) {
+              slugs.push(slug);
+              prodLog.debug(`Slug: ${slug}`);
+            }
+          });
+          prodLog.info(`Slugs trouvés: ${slugs.length}`);
+          return slugs;
+        }
+        
+        var slug=path.split("/product/")[1]?.split("/")[0] || 
+                 path.split("/products/")[1]?.split("/")[0];
+                 
+        if (slug) {
+          prodLog.info(`Page produit, slug: ${slug}`);
+        } else {
+          prodLog.info("Aucun slug détecté");
+        }
+        return slug ? [slug] : [];
+      }
+
+      // Récupération shop + produits
+      async function fetchShopData(){
+        try{
+          var slugs=getSlugs();
+          if(!slugs.length) {
+            slugs=["product-demo"];
+            prodLog.info("Utilisation du slug de démo");
+          }
+          
+          prodLog.info(`Envoi requête avec ${slugs.length} slugs`);
+          var res = await fetch(CONFIG.API_BASE+"/get_shop_by_id",{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body: JSON.stringify({shopId:shopId, slugs:slugs})
+          });
+          
+          if(!res.ok) throw new Error(`Erreur API: ${res.status}`);
+          
+          var data = await res.json();
+          prodLog.info("Réponse API reçue");
+          
+          products = data.products.map(function(p){
+            return {
+              name: p.name,
+              quantity: p.quantity || 1,
+              maxQuantity: p.quantity || 99,
+              dimensions: p.dimensions,
+              fromAddress: p.shippingAddress
+            };
+          });
+          
+          productsContainer.innerHTML="";
+          if (products.length === 0) {
+            prodLog.info("Aucun produit dans la réponse");
+            productsContainer.innerHTML = "<p style='color:#666;'>Aucun produit disponible</p>";
+          } else {
+            prodLog.info(`${products.length} produits chargés`);
+            products.forEach(function(p,i){
+              var div = document.createElement("div");
+              div.style.cssText="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;";
+              var span = document.createElement("span"); 
+              span.textContent = p.name;
+              span.style.cssText = "flex-grow:1; margin-right:10px;";
+              
+              var inp = document.createElement("input"); 
+              inp.type="number"; 
+              inp.value=p.quantity;
+              inp.min=1; 
+              inp.max=p.maxQuantity; 
+              inp.dataset.index=i; 
+              inp.style.cssText = "width:60px; padding:5px; border:1px solid #e0e0e0; border-radius:4px;";
+              div.appendChild(span); 
+              div.appendChild(inp);
+              productsContainer.appendChild(div);
+            });
+          }
+        }catch(err){
+          errorDiv.textContent="Erreur de chargement des produits";
+          prodLog.error("Erreur fetchShopData", err.message);
+        }
+      }
+
+      function getToAddress(){
+        return {
+          name: inputs[0].value||"",
+          street1: inputs[1].value||"",
+          city: inputs[2].value||"",
+          state: inputs[3].value||"",
+          zip: inputs[4].value||"",
+          phone: inputs[5].value||"",
+          email: inputs[6].value||"",
+          country: select.value||"France"
+        };
+      }
+
+      function prepareRequests(){
+        var groups={};
+        products.forEach(function(prod){
+          var key=JSON.stringify(prod.fromAddress);
+          if(!groups[key]) groups[key]={from:prod.fromAddress, parcels:[]};
+          for(var i=0;i<prod.quantity;i++) groups[key].parcels.push(prod.dimensions);
+        });
+        var result=[];
+        Object.keys(groups).forEach(function(k){
+          result.push({from: groups[k].from, to:getToAddress(), parcels: groups[k].parcels});
+        });
+        
+        prodLog.info(`${result.length} groupes d'expédition préparés`);
+        return result;
+      }
+
+      // Bouton estimation
+      estimateBtn.onclick = async function(){
+        errorDiv.textContent=""; 
+        resultsDiv.innerHTML="";
+        
+        var originalText = estimateBtn.textContent;
+        estimateBtn.textContent="Calcul en cours...";
+        estimateBtn.disabled = true;
+        
+        prodLog.info("Début estimation");
+        
+        // Quantités
+        content.querySelectorAll("input[type=number]").forEach(function(input){
+          var i=parseInt(input.dataset.index);
+          products[i].quantity=Math.max(1,parseInt(input.value)||1);
+        });
+        
+        var toAddr=getToAddress();
+        prodLog.debug("Adresse", toAddr);
+        
+        if(!toAddr.street1 || !toAddr.city || !toAddr.zip || !toAddr.country || !toAddr.email){
+          errorDiv.textContent="Veuillez compléter tous les champs";
+          estimateBtn.textContent=originalText;
+          estimateBtn.disabled = false;
+          prodLog.info("Champs incomplets");
+          return;
+        }
+        
+        await fetchShopData();
+        if(!products.length){ 
+          errorDiv.textContent="Aucun produit disponible"; 
+          estimateBtn.textContent=originalText;
+          estimateBtn.disabled = false;
+          prodLog.info("Aucun produit");
+          return; 
+        }
+
+        var reqs=prepareRequests();
+        prodLog.debug("Requêtes préparées");
+
+        try{
+          var allRates=[];
+          for(var req of reqs){
+            prodLog.info(`Envoi requête pour ${req.parcels.length} colis`);
+            var r = await fetch(CONFIG.API_BASE+"/getRates",{
+              method:"POST",
+              headers:{"Content-Type":"application/json"},
+              body:JSON.stringify(req)
+            });
+            if(!r.ok) throw new Error(`Erreur: ${r.status}`);
+            
+            var rates = await r.json();
+            prodLog.info(`${rates.length} options reçues`);
+            allRates.push(...rates);
+          }
+          
+          resultsDiv.innerHTML="";
+          if (allRates.length === 0) {
+            resultsDiv.innerHTML = "<p style='color:#666; text-align:center;'>Aucune option de livraison disponible</p>";
+            prodLog.info("Aucune option de livraison");
+          } else {
+            // Trier par prix croissant
+            allRates.sort((a, b) => parseFloat(a.price) - parseFloat(b.price));
+            
+            allRates.forEach(function(r){
+              var div = document.createElement("div");
+              div.style.cssText = "display:flex; justify-content:space-between; padding:12px; margin-bottom:8px; background:#fff; border-radius:8px; border:1px solid #e0e0e0;";
+              
+              var serviceDiv = document.createElement("div");
+              serviceDiv.style.fontWeight = "500";
+              serviceDiv.textContent = `${r.carrier} - ${r.service}`;
+              
+              var priceDiv = document.createElement("div");
+              priceDiv.style.fontWeight = "600";
+              priceDiv.style.color = "#00d084";
+              priceDiv.textContent = `${r.price} ${r.currency}`;
+              
+              div.appendChild(serviceDiv);
+              div.appendChild(priceDiv);
+              resultsDiv.appendChild(div);
+            });
+            
+            prodLog.info(`${allRates.length} options affichées`);
+          }
+        }catch(err){
+          errorDiv.textContent="Erreur lors de l'estimation";
+          prodLog.error("Erreur estimation", err.message);
+        }finally{
+          estimateBtn.textContent=originalText;
+          estimateBtn.disabled = false;
+        }
+      };
+      
+      // Initialisation des données
+      prodLog.info("Chargement initial");
+      fetchShopData();
+    }
+
+    if(document.readyState==="loading"){
+      document.addEventListener("DOMContentLoaded", initWidget);
+    }else{
+      initWidget();
+    }
+  })();
+}
+</script>

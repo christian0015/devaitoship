@@ -1,0 +1,250 @@
+ <div id="devaito-widget" data-shop-id="68b5be1d28307592ea3c34b7"></div>
+<script type="text/javascript">
+// Vérifier si le widget a déjà été initialisé
+if (typeof window.devaitoInitialized === 'undefined') {
+  window.devaitoInitialized = true;
+  
+  (function(){
+    const CONFIG = {
+      API_BASE: "http://localhost:3000/api",
+      DEBUG: true
+    };
+    const debugLog = (...args) => CONFIG.DEBUG && console.log("[Devaito]", ...args);
+
+    function initWidget() {
+      const container = document.getElementById("devaito-widget");
+      if(!container) return;
+
+      // Vérifier si le widget existe déjà
+      if (container.querySelector("#devaito-toggle")) {
+        debugLog("Widget déjà initialisé");
+        return;
+      }
+
+      const shopId = container.getAttribute("data-shop-id");
+      if(!shopId) return console.error("data-shop-id manquant");
+
+      // Création du HTML
+      var toggleBtn = document.createElement("button");
+      toggleBtn.id = "devaito-toggle";
+      toggleBtn.textContent = "Estimation livraison ▼";
+      toggleBtn.style.cssText = "width:100%;padding:10px;margin-bottom:10px;border-radius:8px;border:1px solid #e9ecef;background:#ffffff;color:#000;cursor:pointer;transition:all 0.3s ease;";
+
+      var content = document.createElement("div");
+      content.id = "devaito-content";
+      content.style.display = "none";
+      content.style.background = "#ffffff";
+      content.style.border = "1px solid #e9ecef";
+      content.style.borderRadius = "8px";
+      content.style.padding = "15px";
+      content.style.boxShadow = "0 4px 6px rgba(0,0,0,0.1)";
+
+      // Formulaire d'adresse
+      var fields = ["Nom","Rue","Ville", "State","Code postal","Téléphone","Email"];
+      var inputs = [];
+      fields.forEach(function(f,i){
+        var input = document.createElement("input");
+        input.placeholder = f;
+        input.className = "devaito-input";
+        input.style.cssText = "width:100%;margin-bottom:5px;padding:8px;border:1px solid #e9ecef;border-radius:6px;";
+        if(f==="Rue") input.value="123 Street";
+        if(f==="Ville") input.value="Paris";
+        if(f==="State") input.value="Paris";
+        if(f==="Code postal") input.value="20000";
+        if(f==="Téléphone") input.value="+1 23294349";
+        if(f==="Email") input.value="christi@gmail.com";
+        content.appendChild(input);
+        inputs.push(input);
+      });
+      
+      // Pays
+      var select = document.createElement("select");
+      select.className = "devaito-input";
+      select.style.cssText = "width:100%;margin-bottom:10px;padding:8px;border:1px solid #e9ecef;border-radius:6px;";
+      var optFR = document.createElement("option"); optFR.value="FR"; optFR.text="France";
+      var optUS = document.createElement("option"); optUS.value="US"; optUS.text="USA";
+      select.appendChild(optFR); select.appendChild(optUS);
+      content.appendChild(select);
+
+      // Container produits
+      var productsContainer = document.createElement("div");
+      productsContainer.id = "devaito-products";
+      productsContainer.style.marginBottom = "10px";
+      content.appendChild(productsContainer);
+
+      // Bouton estimer le prix
+      var estimateBtn = document.createElement("button");
+      estimateBtn.id = "devaito-estimate";
+      estimateBtn.textContent = "Estimer le prix";
+      estimateBtn.style.cssText = "width:100%;padding:10px;border-radius:8px;border:1px solid #00d084;background:#00d084;color:#ffffff;font-weight:600;cursor:pointer;transition:all 0.3s ease;display:none;"; 
+      content.appendChild(estimateBtn);
+
+      // Div erreurs et résultats
+      var errorDiv = document.createElement("div");
+      errorDiv.id="devaito-error";
+      errorDiv.style.color="#dc3545"; errorDiv.style.marginTop="10px";
+      content.appendChild(errorDiv);
+      var resultsDiv = document.createElement("div");
+      resultsDiv.id="devaito-results";
+      resultsDiv.style.marginTop="10px";
+      content.appendChild(resultsDiv);
+
+      container.appendChild(toggleBtn);
+      container.appendChild(content);
+
+      var products = [];
+
+      // Toggle affichage - Gestionnaire d'événement amélioré
+      function toggleContent() {
+        if(content.style.display==="none"){
+          content.style.display="block";
+          estimateBtn.style.display="block";
+          toggleBtn.textContent="Estimation livraison ▲";
+        }else{
+          content.style.display="none";
+          toggleBtn.textContent="Estimation livraison ▼";
+        }
+      }
+      
+      // Utiliser onclick au lieu de addEventListener pour éviter les duplications
+      toggleBtn.onclick = toggleContent;
+
+      // Récupération slugs
+      function getSlugs(){
+        var path = window.location.pathname.toLowerCase();
+        if(path.includes("/cart") || path.includes("/panier")){
+          var slugs=[];
+          document.querySelectorAll('a[href*="/product/"]').forEach(function(a){
+            var slug=a.href.split("/product/")[1]?.split("/")[0];
+            if(slug && slugs.indexOf(slug)===-1) slugs.push(slug);
+          });
+          debugLog("Page panier, slugs:", slugs);
+          return slugs;
+        }
+        var slug=path.split("/product/")[1]?.split("/")[0];
+        debugLog("Page produit, slug:", slug);
+        return slug?[slug]:[];
+      }
+
+      // Récupération shop + produits
+      async function fetchShopData(){
+        try{
+          var slugs=getSlugs();
+          if(!slugs.length) slugs=["product-2"];
+          debugLog("Requête shop avec slugs:", slugs);
+          var res = await fetch(CONFIG.API_BASE+"/get_shop_by_id",{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body: JSON.stringify({shopId:shopId, slugs:slugs})
+          });
+          if(!res.ok) throw new Error("Erreur API shop");
+          var data = await res.json();
+          products = data.products.map(function(p){
+            return {
+              name: p.name,
+              quantity: p.quantity,
+              maxQuantity: p.quantity||99,
+              dimensions: p.dimensions,
+              fromAddress: p.shippingAddress
+            };
+          });
+          productsContainer.innerHTML="";
+          products.forEach(function(p,i){
+            var div = document.createElement("div");
+            div.style.cssText="display:flex;justify-content:space-between;margin-bottom:5px;";
+            var span = document.createElement("span"); span.textContent=p.name;
+            var inp = document.createElement("input"); inp.type="number"; inp.value=p.quantity;
+            inp.min=1; inp.max=p.maxQuantity; inp.dataset.index=i; inp.style.width="50px";
+            div.appendChild(span); div.appendChild(inp);
+            productsContainer.appendChild(div);
+          });
+        }catch(err){
+          errorDiv.textContent=err.message;
+          debugLog("Erreur shop:", err);
+        }
+      }
+
+      function getToAddress(){
+        return {
+          name: inputs[0].value||"",
+          street1: inputs[1].value||"",
+          city: inputs[2].value||"",
+          state: inputs[3].value||"",
+          zip: inputs[4].value||"",
+          phone: inputs[5].value||"",
+          email: inputs[6].value||"",
+          country: select.value||""
+        };
+      }
+
+      function prepareRequests(){
+        var groups={};
+        products.forEach(function(prod){
+          var key=JSON.stringify(prod.fromAddress);
+          if(!groups[key]) groups[key]={from:prod.fromAddress, parcels:[]};
+          for(var i=0;i<prod.quantity;i++) groups[key].parcels.push(prod.dimensions);
+        });
+        var result=[];
+        Object.keys(groups).forEach(function(k){
+          result.push({from: groups[k].from, to:getToAddress(), parcels: groups[k].parcels});
+        });
+        return result;
+      }
+
+      // Bouton estimation
+      estimateBtn.onclick = async function(){
+        errorDiv.textContent=""; resultsDiv.innerHTML="";
+        toggleBtn.textContent="Calcul...";
+        // Quantités
+        content.querySelectorAll("input[type=number]").forEach(function(input){
+          var i=parseInt(input.dataset.index);
+          products[i].quantity=Math.max(1,parseInt(input.value)||1);
+        });
+        var toAddr=getToAddress();
+        if(!toAddr.street1 || !toAddr.city || !toAddr.zip || !toAddr.country || !toAddr.email){
+          errorDiv.textContent="Adresse de livraison incomplète";
+          toggleBtn.textContent="Estimation livraison ▲";
+          return;
+        }
+        await fetchShopData();
+        if(!products.length){ errorDiv.textContent="Aucun produit pour estimation"; toggleBtn.textContent="Estimation livraison ▲"; return; }
+
+        var reqs=prepareRequests();
+        debugLog("Payload Shippo:", reqs);
+
+        try{
+          var allRates=[];
+          for(var req of reqs){
+            var r = await fetch(CONFIG.API_BASE+"/getRates",{
+              method:"POST",
+              headers:{"Content-Type":"application/json"},
+              body:JSON.stringify(req)
+            });
+            if(!r.ok) throw new Error("Erreur API Shippo");
+            allRates.push(...await r.json());
+          }
+          resultsDiv.innerHTML="";
+          allRates.forEach(function(r){
+            var div = document.createElement("div");
+            div.textContent = r.carrier+" - "+r.service+" : "+r.price+" "+r.currency;
+            resultsDiv.appendChild(div);
+          });
+        }catch(err){
+          errorDiv.textContent=err.message;
+        }finally{
+          toggleBtn.textContent="Estimation livraison ▲";
+        }
+      };
+      
+      // Initialisation des données
+      fetchShopData();
+    }
+
+    if(document.readyState==="loading"){
+      document.addEventListener("DOMContentLoaded", initWidget);
+    }else{
+      initWidget();
+    }
+  })();
+}
+</script>
