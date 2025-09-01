@@ -1,0 +1,49 @@
+GET https://example.com/comments/1 HTTP/1.1
+
+###
+
+GET https://example.com/topics/1 HTTP/1.1
+
+###
+
+POST https://example.com/comments HTTP/1.1
+content-type: application/json
+
+{
+    "name": "sample",
+    "time": "Wed, 21 Oct 2015 18:27:50 GMT"
+}
+
+
+###
+
+# POST https://c04df58d1967.ngrok-free.app/api/v1/auth/resend-verification HTTP/1.1
+POST https://c04df58d1967.ngrok-free.app/api/v1/auth/register HTTP/1.1
+content-type: application/json
+
+{
+    "email": "christiantukundastocklin@gmail.com",
+    "username": "christian Tuks",
+    "password": "christiantukundastocklin@gmail.com",
+    "time": "Wed, 21 Oct 2015 18:27:50 GMT",
+    "bangala": "Wed, 21 Oct 2015 18:27:50 GMT"
+}
+
+###
+POST http://localhost:3000/api/get_shop_by_id HTTP/1.1
+content-type: application/json
+
+{
+    "shopId":"68b1d67837eabb1ae16b2983", 
+    "slugs":["Trottinette"]
+}
+
+
+###
+POST http://localhost:3000/api/get_shop_by_id HTTP/1.1
+content-type: application/json
+
+{
+    "shopId":"68b1ce3037eabb1ae16b2980", 
+    "slugs":["product-2"]
+}

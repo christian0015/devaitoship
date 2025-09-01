@@ -1,0 +1,17 @@
+.root {
+  --color-primary: #000000;
+  --color-secondary: #ffffff;
+  --color-accent: #00d084;
+  --color-accent-hover: #00b874;
+  --color-gray-light: #f8f9fa;
+  --color-gray-medium: #6c757d;
+  --color-gray-dark: #212529;
+  --color-border: #e9ecef;
+  --color-success: #28a745;
+  --color-warning: #ffc107;
+  --color-danger: #dc3545;
+  --color-info: #17a2b8;
+  --shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --border-radius: 8px;
+  --transition: all 0.3s ease;
+}   

@@ -1,0 +1,57 @@
+.sectionPricing {
+  padding: 60px 20px;
+  background: #fff;
+  text-align: center;
+}
+
+.sectionPricing-title {
+  font-size: 2rem;
+  margin-bottom: 40px;
+  color: #222;
+}
+
+.sectionPricing-plans {
+  display: flex;
+  justify-content: center;
+  gap: 30px;
+  flex-wrap: wrap;
+}
+
+.sectionPricing-plan {
+  background: #f9f9f9;
+  padding: 25px;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  width: 280px;
+  transition: transform 0.3s ease, background 0.3s ease;
+}
+
+.sectionPricing-plan:hover {
+  transform: translateY(-5px);
+}
+
+.sectionPricing-plan.featured {
+  background: #222;
+  color: #fff;
+}
+
+.sectionPricing-planTitle {
+  font-size: 1.4rem;
+  margin-bottom: 10px;
+}
+
+.sectionPricing-price {
+  font-size: 1.6rem;
+  font-weight: bold;
+  margin-bottom: 15px;
+}
+
+.sectionPricing-features {
+  list-style: none;
+  padding: 0;
+}
+
+.sectionPricing-features li {
+  margin: 8px 0;
+  font-size: 1rem;
+}
