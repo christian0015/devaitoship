@@ -1,3 +1,4 @@
+// validateRates.js
 import type { NextApiRequest, NextApiResponse } from 'next';
 import * as chippo from '../../lib/chippo';
 
