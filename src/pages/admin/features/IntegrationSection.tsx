@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
+import CodeBlock from '@/components/sections/CodeBlock';
 // Icônes SVG personnalisées
 const Copy = () => (
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -75,11 +76,53 @@ export default function IntegrationSection({ userData }: Props) {
     }
   };
 
-  const htmlCode = `<!-- DIV where the widget will be injected -->
+  const htmlCode = `<!-- Widget bundle script -->
+  
+<!-- DIV where the widget will be injected -->
 <div id="devaito-widget" data-shop-id="${shopId}"></div>
 
-<!-- Widget bundle script -->
-<script defer src="https://devaitoship.vercel.app/embed.js"></script>`;
+<script type="text/javascript">
+(function() {
+  /**
+   * Détecte si on est dans le builder Devaito
+   * - Marche même avec des domaines personnalisés
+   */
+  function isInBuilder() {
+    const href = window.location.href;
+    return href.includes('/admin/builder');
+  }
+
+  /**
+   * Charge un script externe dynamiquement
+   * @param {string} url
+   * @param {function} callback
+   */
+  function loadScript(url, callback) {
+    const script = document.createElement('script');
+    script.src = url;
+    script.async = true;
+    script.defer = true;
+    script.onload = callback || function(){};
+    script.onerror = function() {
+      console.error('Impossible de charger le script : ' + url);
+    };
+    document.head.appendChild(script);
+  }
+
+  // Si on n'est PAS dans le builder, on charge le script du widget
+  if (!isInBuilder()) {
+    loadScript('https://devaitoship.vercel.app/embed.js', function() {
+      console.log('Widget chargé et exécuté.');
+    });
+  } else {
+    console.log('Mode Builder détecté : script du widget non chargé.');
+  }
+})();
+</script>
+    `;
+
+
+
 
   const reactCode = `import { useEffect } from 'react';
 
@@ -195,11 +238,19 @@ export default function MyComponent() {
               </button>
             </div>
 
-            <div className="code-wrapper">
+            {/* <div className="code-wrapper">
               <pre className="code-block">
                 <code>{activeTab === 'html' ? htmlCode : reactCode}</code>
               </pre>
+            </div> */}
+
+            <div className="code-wrapper">
+              <CodeBlock
+                code={activeTab === 'html' ? htmlCode : reactCode} 
+                language={activeTab === 'html' ? 'markup' : 'javascript'}
+              />
             </div>
+
           </div>
 
           <div className="instructions-section">

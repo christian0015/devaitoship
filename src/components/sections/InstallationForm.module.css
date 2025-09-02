@@ -1,7 +1,7 @@
 /* components/InstallationForm.module.css */
 .container {
   max-width: 600px;
-  margin: 0 auto;
+  margin: 16px auto 40px;
   padding: 2rem;
   background: #fff;
   border-radius: 12px;
@@ -162,4 +162,10 @@
 .success p {
   color: #666;
   margin-bottom: 2rem;
+}
+
+.fieldError {
+  color: #e53935;
+  font-size: 0.875rem;
+  margin-top: 0.25rem;
 }
