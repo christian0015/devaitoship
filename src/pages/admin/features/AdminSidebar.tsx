@@ -32,6 +32,19 @@ export default function AdminSidebar({ currentSection, setCurrentSection, sideba
       )
     },
     {
+      id: 'integration',
+      label: 'Intégration',
+      icon: (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M12 2v20M2 12h20" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round"/>
+        </svg>
+      )
+    },
+    {
       id: 'checkTrack',
       label: 'Suivi Colis',
       icon: (

@@ -2,6 +2,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import dbConnect from '../../lib/mongo';
 import { findMerchantById } from '../../lib/models/merchantModel';
+import { log } from 'console';
 
 interface ProductInfo {
   name: string;
@@ -87,14 +88,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 async function fetchProductData(merchant: any, slug: string): Promise<ProductInfo> {
   try {
     const decryptedToken = merchant.decryptToken();
-    const response = await fetch(`${merchant.shopUrl}/api/products/${slug}`, {
+    console.log("Données Marchant :", merchant.shopUrl);
+    const response = await fetch(`${merchant.shopUrl}/api/get-product/${slug}`, {
       headers: { 
         Authorization: `Bearer ${decryptedToken}`,
         'Content-Type': 'application/json'
       },
     });
-    if (!response.ok) throw new Error(`Failed to fetch product ${slug}`);
+    
+    // if (!response.ok) throw new Error(`Failed to fetch product ${slug}`);
     const productData = await response.json();
+    console.log("Données produit :", productData); // <-- Ici tu vois le JSON
 
     const dimensions = productData.dimensions || merchant.defaultDimensions || {
       length: 20, width: 15, height: 10, weight: 1.5, distance_unit: 'cm', mass_unit: 'kg'

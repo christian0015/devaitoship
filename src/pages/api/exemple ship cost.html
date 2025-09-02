@@ -1,10 +1,12 @@
+<div id="devaito-widget" data-shop-id="68b5be1d28307592ea3c34b7"></div>
+<script>
 // Vérifier si le widget a déjà été initialisé
 if (typeof window.devaitoInitialized === 'undefined') {
   window.devaitoInitialized = true;
   
   (function(){
     const CONFIG = {
-      API_BASE: "https://devaitoship.vercel.app/api",
+      API_BASE: "http://localhost:3000/api",
       DEBUG: true
     };
     
@@ -326,7 +328,7 @@ if (typeof window.devaitoInitialized === 'undefined') {
           productsContainer.innerHTML="";
           if (products.length === 0) {
             prodLog.info("Aucun produit dans la réponse");
-            productsContainer.innerHTML = "<p style='color:#9ca3af; text-align:center; padding:12px;'>Aucun produit disponible";
+            productsContainer.innerHTML = "<p style='color:#9ca3af; text-align:center; padding:12px;'>Aucun produit disponible</p>";
           } else {
             prodLog.info(`${products.length} produits chargés`);
             products.forEach(function(p,i){
@@ -465,7 +467,7 @@ if (typeof window.devaitoInitialized === 'undefined') {
           
           resultsDiv.innerHTML="";
           if (allRates.length === 0) {
-            resultsDiv.innerHTML = "<div style='text-align:center; color:#6b7280; padding:20px; background:#f9fafb; border-radius:8px; border:1px solid #e5e7eb;'>📭 Aucune option de livraison disponible";
+            resultsDiv.innerHTML = "<div style='text-align:center; color:#6b7280; padding:20px; background:#f9fafb; border-radius:8px; border:1px solid #e5e7eb;'>📭 Aucune option de livraison disponible</div>";
             prodLog.info("Aucune option de livraison");
           } else {
             // Titre des résultats
@@ -562,3 +564,4 @@ if (typeof window.devaitoInitialized === 'undefined') {
     }
   })();
 }
+</script>

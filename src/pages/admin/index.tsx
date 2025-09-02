@@ -6,6 +6,7 @@ import AdminHeader from './features/AdminHeader';
 import AdminSidebar from './features/AdminSidebar';
 import DashboardSection from './features/DashboardSection';
 import GetRatesSection from './features/GetRatesSection';
+import IntegrationSection from './features/IntegrationSection';
 import CheckTrackSection from './features/CheckTrackSection';
 import ProfileSection from './features/ProfileSection';
 
@@ -37,6 +38,8 @@ export default function AdminDashboard() {
         return <DashboardSection userData={userData} />;
       case 'getRates':
         return <GetRatesSection userData={userData} />;
+      case 'integration':
+        return <IntegrationSection userData={userData} />;
       case 'checkTrack':
         return <CheckTrackSection userData={userData} />;
       case 'profile':
