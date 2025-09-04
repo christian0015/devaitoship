@@ -17,17 +17,6 @@ if (typeof window.devaitoInitialized === 'undefined') {
 
     prodLog.info("Initialisation du widget");
 
-     function isInBuilder() {
-      const href = window.location.href;
-      return href.includes('/admin/builder');
-    }
-
-    // Si on est dans le builder, on ne charge pas le widget
-    if (isInBuilder()) {
-      prodLog.info("Mode Builder détecté : script du widget non exécuté.");
-      return;
-    }
-
     // Ajouter les styles CSS uniques pour éviter les conflits
     if (!document.getElementById('devaito-widget-styles')) {
       const styleSheet = document.createElement('style');
@@ -102,7 +91,7 @@ if (typeof window.devaitoInitialized === 'undefined') {
       // Container principal du widget (style card)
       var widgetCard = document.createElement("div");
       widgetCard.className = "devaito-card-widget";
-      widgetCard.style.cssText = "background: white; width: 90%; max-width: 500px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border: 1px solid #e5e7eb; overflow: hidden; margin: 20px auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;";
+      widgetCard.style.cssText = "background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border: 1px solid #e5e7eb; overflow: hidden; margin: 20px 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;";
 
       // Header du widget avec toggle
       var header = document.createElement("div");
@@ -274,42 +263,6 @@ if (typeof window.devaitoInitialized === 'undefined') {
       function getSlugs(){
         var path = window.location.pathname.toLowerCase();
         prodLog.info(`Page: ${path}`);
-
-        // ✅ Détection Checkout
-        if (path.includes("/checkout")) {
-          prodLog.info("Page checkout détectée");
-          var slugs = [];
-
-          // Fonction slugify robuste
-          function slugify(str) {
-            return str
-              .toLowerCase()
-              .normalize("NFD") // enlève les accents
-              .replace(/[\u0300-\u036f]/g, "")
-              .replace(/\s+/g, "-") // espaces → tirets
-              .replace(/[^\w-]+/g, "") // supprime tout sauf lettres, chiffres, tirets
-              .replace(/--+/g, "-") // évite les doubles tirets
-              .replace(/^-+|-+$/g, ""); // supprime tirets début/fin
-          }
-
-          // Essayer de récupérer les slugs depuis les données des produits
-          document.querySelectorAll(".order-item .item-name").forEach(nameElement => {
-            if (nameElement) {
-              const nameText = nameElement.textContent.trim();
-              let slug = slugify(nameText); 
-              slug= `products`+slug
-
-
-              if (slug && slugs.indexOf(slug) === -1) {
-                slugs.push(slug);
-                prodLog.debug(`Slug checkout détecté: ${slug}`);
-              }
-            }
-          });
-
-          prodLog.info(`Slugs checkout trouvés: ${slugs.length}`);
-          return slugs;
-        }
         
         if(path.includes("/cart") || path.includes("/panier")){
           prodLog.info("Page panier détectée");
