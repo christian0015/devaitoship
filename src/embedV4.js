@@ -17,7 +17,7 @@ if (typeof window.devaitoInitialized === 'undefined') {
 
     prodLog.info("Initialisation du widget");
 
-    function isInBuilder() {
+     function isInBuilder() {
       const href = window.location.href;
       return href.includes('/admin/builder');
     }
@@ -68,70 +68,6 @@ if (typeof window.devaitoInitialized === 'undefined') {
         .devaito-toggle-container:hover { 
           background: #f0f9ff !important; 
         }
-        
-        /* Styles pour le widget flottant */
-        .devaito-floating-widget {
-          position: fixed;
-          top: 85px;
-          right: 20px;
-          width: 60px;
-          height: 60px;
-          background: #00d084;
-          color: white;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 24px;
-          cursor: pointer;
-          box-shadow: 0 4px 12px rgba(0, 208, 132, 0.3);
-          z-index: 10000;
-          transition: all 0.3s ease;
-        }
-        
-        .devaito-floating-widget:hover {
-          transform: scale(1.02);
-        }
-        
-        .devaito-floating-expanded {
-          width: 90%;
-          max-width: 500px;
-          height: auto;
-          max-height: 80vh;
-          border-radius: 12px;
-          overflow: hidden;
-          display: flex;
-          flex-direction: column;
-        }
-        
-        .devaito-floating-header {
-          padding: 16px;
-          background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-          border-bottom: 1px solid #e5e7eb;
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-        }
-        
-        .devaito-floating-title {
-          font-weight: 600;
-          color: #1f2937;
-          font-size: 16px;
-        }
-        
-        .devaito-close-btn {
-          background: none;
-          border: none;
-          font-size: 24px;
-          cursor: pointer;
-          color: #6b7280;
-        }
-        
-        .devaito-floating-content {
-          overflow-y: auto;
-          max-height: calc(80vh - 60px);
-        }
-        
         @media (min-width: 550px) {
           .devaito-grid-responsive {
             display: grid !important;
@@ -143,48 +79,8 @@ if (typeof window.devaitoInitialized === 'undefined') {
       document.head.appendChild(styleSheet);
     }
 
-    // Fonction pour vérifier si on est sur une page avec slug
-    function isSlugPage() {
-      const path = window.location.pathname.toLowerCase();
-      return path.includes("/checkout") || 
-             path.includes("/cart") || 
-             path.includes("/panier") || 
-             path.includes("/product/") || 
-             path.includes("/products/");
-    }
-
     function initWidget() {
-      // Vérifier si on est sur une page avec slug
-      if (!isSlugPage()) {
-        prodLog.info("Pas sur une page avec slug, widget non initialisé");
-        return;
-      }
-
-      let container = document.getElementById("devaito-widget");
-      let shopId = container ? container.getAttribute("data-shop-id") : null;
-      
-      // Si pas de container, créer un widget flottant
-      let isFloating = false;
-      if (!container) {
-        prodLog.info("Aucun conteneur trouvé, création d'un widget flottant");
-        
-        // Vérifier si on a un shopId dans une variable globale
-        if (typeof window.DEVAITO_SHOP_ID !== 'undefined') {
-          shopId = window.DEVAITO_SHOP_ID;
-          prodLog.info(`ShopID récupéré depuis window.DEVAITO_SHOP_ID: ${shopId}`);
-        } else {
-          prodLog.error("Aucun shopId trouvé pour le widget flottant");
-          return;
-        }
-        
-        // Créer le widget flottant
-        container = document.createElement('div');
-        container.id = "devaito-widget-floating";
-        container.style.cssText = "position: fixed; bottom: 150px; right: 20px; z-index: 10000;";
-        document.body.appendChild(container);
-        isFloating = true;
-      }
-      
+      const container = document.getElementById("devaito-widget");
       if(!container) {
         prodLog.error("Container non trouvé");
         return;
@@ -194,7 +90,9 @@ if (typeof window.devaitoInitialized === 'undefined') {
         prodLog.info("Widget déjà initialisé");
         return;
       }
-
+      
+      // Récupération du shopId depuis le div, fallback sur la variable globale
+      const shopId = container.getAttribute("data-shop-id") || window.__SHOP_ID__;
       if(!shopId) {
         prodLog.error("data-shop-id manquant");
         return;
@@ -205,81 +103,65 @@ if (typeof window.devaitoInitialized === 'undefined') {
       // Container principal du widget (style card)
       var widgetCard = document.createElement("div");
       widgetCard.className = "devaito-card-widget";
+      widgetCard.style.cssText = "background: white; width: 90%; max-width: 500px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border: 1px solid #e5e7eb; overflow: hidden; margin: 20px auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;";
+
+      // Header du widget avec toggle
+      var header = document.createElement("div");
+      header.style.cssText = "padding: 20px; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-bottom: 1px solid #e5e7eb;";
+
+      var toggleContainer = document.createElement("label");
+      toggleContainer.className = "devaito-toggle-container";
+      toggleContainer.htmlFor = "devaito-toggle-checkbox";
+      toggleContainer.style.cssText = "display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 8px; border-radius: 8px; background: transparent;";
       
-      // Styles différents selon le mode (flottant ou intégré)
-      if (isFloating) {
-        widgetCard.className += " devaito-floating-widget";
-        widgetCard.style.cssText = "background: white; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; cursor: pointer; box-shadow: 0 4px 12px rgba(0, 208, 132, 0.3); transition: all 0.3s ease;";
-        
-        // Icône pour le widget flottant
-        var floatingIcon = document.createElement("div");
-        floatingIcon.innerHTML = "📦";
-        floatingIcon.style.cssText = "display: flex; align-items: center; justify-content: center; width: 100%; height: 100%;";
-        widgetCard.appendChild(floatingIcon);
-      } else {
-        widgetCard.style.cssText = "background: white; width: 90%; max-width: 500px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border: 1px solid #e5e7eb; overflow: hidden; margin: 20px auto; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;";
-      }
+      var toggleText = document.createElement("div");
+      toggleText.style.cssText = "display: flex; align-items: center; gap: 12px;";
+      
+      var icon = document.createElement("div");
+      icon.innerHTML = "📦";
+      icon.style.cssText = "font-size: 20px;";
+      
+      var textContent = document.createElement("div");
+      var title = document.createElement("div");
+      title.textContent = "Estimation livraison";
+      title.style.cssText = "font-weight: 600; color: #1f2937; font-size: 16px; line-height: 1.2;";
+      
+      var subtitle = document.createElement("div");
+      subtitle.textContent = "Calculez vos frais de port";
+      subtitle.style.cssText = "font-size: 13px; color: #6b7280; margin-top: 2px;";
+      
+      textContent.appendChild(title);
+      textContent.appendChild(subtitle);
+      toggleText.appendChild(icon);
+      toggleText.appendChild(textContent);
+      
+      // Toggle switch moderne
+      var switchContainer = document.createElement("div");
+      switchContainer.style.cssText = "position: relative; width: 48px; height: 24px;";
+      
+      var checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.id = "devaito-toggle-checkbox";
+      checkbox.style.cssText = "position: absolute; opacity: 0; width: 100%; height: 100%; cursor: pointer; z-index: 2;";
+      
+      var switchTrack = document.createElement("div");
+      switchTrack.style.cssText = "width: 48px; height: 24px; background: #d1d5db; border-radius: 12px; position: relative; transition: all 0.3s ease;";
+      
+      var switchThumb = document.createElement("div");
+      switchThumb.style.cssText = "width: 20px; height: 20px; background: white; border-radius: 50%; position: absolute; top: 2px; left: 2px; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.2);";
+      
+      switchTrack.appendChild(switchThumb);
+      switchContainer.appendChild(checkbox);
+      switchContainer.appendChild(switchTrack);
+      
+      toggleContainer.appendChild(toggleText);
+      toggleContainer.appendChild(switchContainer);
+      header.appendChild(toggleContainer);
 
-      // Header du widget avec toggle (seulement pour le mode intégré)
-      if (!isFloating) {
-        var header = document.createElement("div");
-        header.style.cssText = "padding: 20px; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-bottom: 1px solid #e5e7eb;";
-
-        var toggleContainer = document.createElement("label");
-        toggleContainer.className = "devaito-toggle-container";
-        toggleContainer.htmlFor = "devaito-toggle-checkbox";
-        toggleContainer.style.cssText = "display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 8px; border-radius: 8px; background: transparent;";
-        
-        var toggleText = document.createElement("div");
-        toggleText.style.cssText = "display: flex; align-items: center; gap: 12px;";
-        
-        var icon = document.createElement("div");
-        icon.innerHTML = "📦";
-        icon.style.cssText = "font-size: 20px;";
-        
-        var textContent = document.createElement("div");
-        var title = document.createElement("div");
-        title.textContent = "Estimation livraison";
-        title.style.cssText = "font-weight: 600; color: #1f2937; font-size: 16px; line-height: 1.2;";
-        
-        var subtitle = document.createElement("div");
-        subtitle.textContent = "Calculez vos frais de port";
-        subtitle.style.cssText = "font-size: 13px; color: #6b7280; margin-top: 2px;";
-        
-        textContent.appendChild(title);
-        textContent.appendChild(subtitle);
-        toggleText.appendChild(icon);
-        toggleText.appendChild(textContent);
-        
-        // Toggle switch moderne
-        var switchContainer = document.createElement("div");
-        switchContainer.style.cssText = "position: relative; width: 48px; height: 24px;";
-        
-        var checkbox = document.createElement("input");
-        checkbox.type = "checkbox";
-        checkbox.id = "devaito-toggle-checkbox";
-        checkbox.style.cssText = "position: absolute; opacity: 0; width: 100%; height: 100%; cursor: pointer; z-index: 2;";
-        
-        var switchTrack = document.createElement("div");
-        switchTrack.style.cssText = "width: 48px; height: 24px; background: #d1d5db; border-radius: 12px; position: relative; transition: all 0.3s ease;";
-        
-        var switchThumb = document.createElement("div");
-        switchThumb.style.cssText = "width: 20px; height: 20px; background: white; border-radius: 50%; position: absolute; top: 2px; left: 2px; transition: all 0.3s ease; box-shadow: 0 2px 4px rgba(0,0,0,0.2);";
-        
-        switchTrack.appendChild(switchThumb);
-        switchContainer.appendChild(checkbox);
-        switchContainer.appendChild(switchTrack);
-        
-        toggleContainer.appendChild(toggleText);
-        toggleContainer.appendChild(switchContainer);
-        header.appendChild(toggleContainer);
-        widgetCard.appendChild(header);
-      }
-
-      // Contenu du widget (caché initialement pour le mode flottant)
+      // Contenu du widget
       var content = document.createElement("div");
       content.id = "devaito-content";
-      content.style.cssText = isFloating ? "display: none; padding: 24px; background: white;" : "display: none; padding: 24px; background: white;";
+      content.style.cssText = "display: none; padding: 24px; background: white;";
 
       // Section produits
       var productsSection = document.createElement("div");
@@ -327,7 +209,7 @@ if (typeof window.devaitoInitialized === 'undefined') {
         input.name = field.name;
         input.autocomplete = field.autocomplete;
         input.className = "devaito-input-field";
-        input.style.cssText = "width: 100%; padding: 12px 16px; border: 1.5px solid #d1d5db; border-radius: 8px; font-size: 14px; background: #f9fafb; color: #1f2937; box-sizing: border-box;";
+        input.style.cssText = "width: 100%; padding: 12px 16px; border: 1.5px solid #d1d5db; border-radius: 8px; font-size: 14px; background: #f9fafb; box-sizing: border-box;";
         
         // Valeurs par défaut pour la démo
         if(field.name === "name") input.value = "Jean Dupont";
@@ -368,76 +250,26 @@ if (typeof window.devaitoInitialized === 'undefined') {
       content.appendChild(errorDiv);
       content.appendChild(resultsDiv);
 
-      // Pour le mode flottant, ajouter un header avec bouton fermer
-      if (isFloating) {
-        // Conteneur pour le contenu expansé
-        var expandedContent = document.createElement("div");
-        expandedContent.className = "devaito-floating-content";
-        expandedContent.style.cssText = "overflow-y: auto; height: calc(80vh - 60px); display: none; flex-direction: column;";
-
-        // Header avec titre et bouton fermer
-        var floatingHeader = document.createElement("div");
-        floatingHeader.className = "devaito-floating-header";
-        floatingHeader.style.cssText = "padding: 16px; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; display: none;"; // display none
-
-        var floatingTitle = document.createElement("div");
-        floatingTitle.className = "devaito-floating-title";
-        floatingTitle.textContent = "Estimation livraison";
-
-        var closeBtn = document.createElement("button");
-        closeBtn.className = "devaito-close-btn";
-        closeBtn.innerHTML = "×";
-
-        floatingHeader.appendChild(floatingTitle);
-        floatingHeader.appendChild(closeBtn);
-
-        // Ajouter header et contenu au conteneur expansé
-        expandedContent.appendChild(floatingHeader);
-        expandedContent.appendChild(content); // ton contenu principal
-        widgetCard.appendChild(expandedContent);
-        
-        // Gestionnaire pour le bouton fermer
-        closeBtn.addEventListener('click', function(e) {
-          e.stopPropagation();
-          expandedContent.style.display = 'none';
-          floatingHeader.style.display = 'none';
-          floatingIcon.style.display = 'flex'; // revenir à l'état initial
-          widgetCard.style.cssText = "background: white; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; cursor: pointer; box-shadow: 0 4px 12px rgba(0, 208, 132, 0.3);";
-        });
-        
-        // Gestionnaire pour la bulle
-        widgetCard.addEventListener('click', function(e) {
-          if (e.target === widgetCard || e.target === floatingIcon) {
-            floatingIcon.style.display = 'none';           // cacher seulement l'icône
-            floatingHeader.style.display = 'flex';         // afficher le header
-            expandedContent.style.display = 'block';       // afficher le contenu
-            content.style.display = 'block'; // ou block
-            widgetCard.style.cssText = "background: white; width: 90%; max-width: 500px; height: auto; max-height: 80vh; border-radius: 12px; overflow: hidden; display: flex; flex-direction: column; position: fixed; top: 150px; right: 20px; z-index: 10000; box-shadow: 0 10px 30px rgba(0,0,0,0.15);";
-          }
-        });
-      } else {
-        widgetCard.appendChild(content);
-        
-        // Gestionnaire pour le toggle (mode intégré seulement)
-        var checkbox = document.getElementById("devaito-toggle-checkbox");
-        checkbox.onchange = function() {
-          if(this.checked){
-            content.style.display = "block";
-            switchTrack.style.background = "#00d084";
-            switchThumb.style.transform = "translateX(24px)";
-            prodLog.debug("Widget activé");
-          } else {
-            content.style.display = "block";
-            switchTrack.style.background = "#d1d5db";
-            switchThumb.style.transform = "translateX(0)";
-            prodLog.debug("Widget désactivé");
-          }
-        };
-      }
-
+      widgetCard.appendChild(header);
+      widgetCard.appendChild(content);
       container.appendChild(widgetCard);
 
       var products = [];
+
+      // Gestionnaire pour le toggle
+      checkbox.onchange = function() {
+        if(this.checked){
+          content.style.display = "block";
+          switchTrack.style.background = "#00d084";
+          switchThumb.style.transform = "translateX(24px)";
+          prodLog.debug("Widget activé");
+        } else {
+          content.style.display = "none";
+          switchTrack.style.background = "#d1d5db";
+          switchThumb.style.transform = "translateX(0)";
+          prodLog.debug("Widget désactivé");
+        }
+      };
 
       // Récupération slugs
       function getSlugs(){
@@ -467,6 +299,7 @@ if (typeof window.devaitoInitialized === 'undefined') {
               const nameText = nameElement.textContent.trim();
               let slug = slugify(nameText); 
               slug= `products`+slug
+
 
               if (slug && slugs.indexOf(slug) === -1) {
                 slugs.push(slug);
@@ -568,7 +401,7 @@ if (typeof window.devaitoInitialized === 'undefined') {
               quantityInput.min = 1;
               quantityInput.max = p.maxQuantity;
               quantityInput.dataset.index = i;
-              quantityInput.style.cssText = "width: 60px; padding: 8px; border: 1.5px solid #d1d5db; color: #1f2937; border-radius: 6px; text-align: center; font-size: 14px;";
+              quantityInput.style.cssText = "width: 60px; padding: 8px; border: 1.5px solid #d1d5db; border-radius: 6px; text-align: center; font-size: 14px;";
               
               productCard.appendChild(productInfo);
               productCard.appendChild(quantityInput);

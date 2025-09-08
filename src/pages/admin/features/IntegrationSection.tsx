@@ -83,6 +83,9 @@ export default function IntegrationSection({ userData }: Props) {
 
 <script type="text/javascript">
 (function() {
+
+  // Stocker le shopId dans une variable globale
+  window.DEVAITO_SHOP_ID = '${shopId}';
   /**
    * Détecte si on est dans le builder Devaito
    * - Marche même avec des domaines personnalisés
@@ -128,6 +131,9 @@ export default function IntegrationSection({ userData }: Props) {
 
 export default function MyComponent() {
   useEffect(() => {
+
+    // Stocker le shopId dans une variable globale
+    window.DEVAITO_SHOP_ID = '${shopId}';
     const script = document.createElement('script');
     script.src = 'https://devaitoship.vercel.app/embed.js';
     script.defer = true;
