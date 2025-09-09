@@ -466,7 +466,7 @@ if (typeof window.devaitoInitialized === 'undefined') {
             if (nameElement) {
               const nameText = nameElement.textContent.trim();
               let slug = slugify(nameText); 
-              slug= `products`+slug
+              // slug= `products`+slug
 
               if (slug && slugs.indexOf(slug) === -1) {
                 slugs.push(slug);
