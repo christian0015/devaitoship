@@ -44,6 +44,42 @@ POST http://localhost:3000/api/get_shop_by_id HTTP/1.1
 content-type: application/json
 
 {
-    "shopId":"68b1ce3037eabb1ae16b2980", 
+    "shopId":"68c94bda80a0b01b112de19e", 
     "slugs":["product-2"]
+}
+
+###
+POST http://localhost:3000/api/get_shop_data_v2 HTTP/1.1
+content-type: application/json
+
+{
+    "shopId":"68c94bda80a0b01b112de19e", 
+    "productIds":["2"],
+    "toadress":{"name", "email"},
+}
+
+###
+POST http://localhost:3000/api/get_shipping_rates HTTP/1.1
+content-type: application/json
+
+{
+  "shopId": "68c94bda80a0b01b112de19e",
+  "toAddress": {
+    "name": "Marie Martin",
+    "street1": "22 Avenue des Champs-Élysées",
+    "city": "Paris",
+    "state": "Île-de-France",
+    "zip": "75008",
+    "country": "FR"
+  },
+  "products": [
+    {
+      "productId": 2,
+      "quantity": 1
+    },
+    {
+      "productId": 5,
+      "quantity": 3
+    }
+  ]
 }
