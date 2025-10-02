@@ -64,7 +64,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         id: merchant._id,
         name: merchant.shopName,
         url: merchant.shopUrl,
-        address: merchant.shippingAddress || {
+        address: merchant.shippingAddress || { // Ajoutez ceci
           name: merchant.merchantName || merchant.shopName,
           street1: '123 Main St',
           city: 'Paris',
@@ -124,33 +124,18 @@ async function fetchProductById(merchant: any, productId: number): Promise<Produ
     );
 
     const shippingData = await shippingResponse.json();
-    console.log("Données shipping pour ID:", productId, shippingData);
-
-    // Extraire les dimensions des données de shipping
-    const shippingItem = shippingData.data && shippingData.data[0] ? shippingData.data[0] : null;
-    
-    // Construire l'objet dimensions correctement formaté
-    const dimensions = shippingItem ? {
-      length: shippingItem.length || 20,
-      width: shippingItem.width || 15,
-      height: shippingItem.height || 10,
-      weight: shippingItem.weight /1000 || 1.5,
-      distance_unit: 'cm',
-      mass_unit: 'kg'
-    } : (merchant.defaultDimensions || getDefaultDimensions());
 
     return {
       id: productId,
       name: 'Produit #' + productId,
       quantity: 1,
-      dimensions: dimensions,
-      shippingAddress: merchant.shippingAddress || getDefaultAddress(merchant),
-      usedDefaultDims: !shippingItem,
-      dimsSource: shippingItem ? 'product' : (merchant.defaultDimensions ? 'merchant' : 'code'),
-      addressSource: merchant.shippingAddress ? 'merchant' : 'code'
+      dimensions: shippingData.data[0] || merchant.defaultDimensions,
+      shippingAddress: merchant.shippingAddress,
+      usedDefaultDims: !shippingData.data[0],
+      dimsSource: shippingData.data[0] ? 'product' : 'merchant',
+      addressSource: 'merchant'
     };
   } catch (error) {
-    console.error(`Error fetching product by ID ${productId}:`, error);
     return getFallbackProductInfo(merchant);
   }
 }
@@ -159,7 +144,7 @@ async function fetchProductBySlug(merchant: any, slug: string): Promise<ProductI
   try {
     const decryptedToken = merchant.decryptToken();
     
-    // Récupérer le produit par slug pour obtenir l'ID et le nom
+    // Récupérer le produit par slug pour obtenir l'ID
     const productResponse = await fetch(
       `${merchant.shopUrl}/api/get-product/${slug}`,
       {
@@ -171,53 +156,11 @@ async function fetchProductBySlug(merchant: any, slug: string): Promise<ProductI
     );
 
     const productData = await productResponse.json();
-    console.log("Données produit par slug:", slug, productData);
-
-    const productId = productData.id || productData.data?.id;
-    const productName = productData.name || productData.data?.name || 'Produit inconnu';
-
-    if (!productId) {
-      throw new Error(`No product ID found for slug ${slug}`);
-    }
+    const productId = productData.data.id;
 
     // Maintenant récupérer les infos d'expédition avec l'ID
-    const shippingResponse = await fetch(
-      `${merchant.shopUrl}/get-shipping-info/${productId}`,
-      {
-        headers: { 
-          Authorization: `Bearer ${decryptedToken}`,
-          'Content-Type': 'application/json'
-        },
-      }
-    );
-
-    const shippingData = await shippingResponse.json();
-    console.log("Données shipping pour slug:", slug, shippingData);
-
-    // Extraire les dimensions des données de shipping
-    const shippingItem = shippingData.data && shippingData.data[0] ? shippingData.data[0] : null;
-    
-    const dimensions = shippingItem ? {
-      length: shippingItem.length || 20,
-      width: shippingItem.width || 15,
-      height: shippingItem.height || 10,
-      weight: shippingItem.weight /1000 || 1.5,
-      distance_unit: 'cm',
-      mass_unit: 'kg'
-    } : (merchant.defaultDimensions || getDefaultDimensions());
-
-    return {
-      id: productId,
-      name: productName, // Utiliser le nom réel du produit ici
-      quantity: 1,
-      dimensions: dimensions,
-      shippingAddress: merchant.shippingAddress || getDefaultAddress(merchant),
-      usedDefaultDims: !shippingItem,
-      dimsSource: shippingItem ? 'product' : (merchant.defaultDimensions ? 'merchant' : 'code'),
-      addressSource: merchant.shippingAddress ? 'merchant' : 'code'
-    };
+    return await fetchProductById(merchant, productId);
   } catch (error) {
-    console.error(`Error fetching product by slug ${slug}:`, error);
     return getFallbackProductInfo(merchant);
   }
 }
@@ -226,33 +169,20 @@ function getFallbackProductInfo(merchant: any): ProductInfo {
   return {
     name: 'Produit non disponible',
     quantity: 1,
-    dimensions: merchant.defaultDimensions || getDefaultDimensions(),
-    shippingAddress: merchant.shippingAddress || getDefaultAddress(merchant),
+    dimensions: merchant.defaultDimensions || {
+      length: 20, width: 15, height: 10, weight: 1.5, 
+      distance_unit: 'cm', mass_unit: 'kg'
+    },
+    shippingAddress: merchant.shippingAddress || {
+      name: merchant.merchantName || merchant.shopName,
+      street1: '123 Main St',
+      city: 'Paris',
+      state: 'Île-de-France',
+      zip: '75001',
+      country: 'FR'
+    },
     usedDefaultDims: true,
     dimsSource: 'code',
     addressSource: 'code'
-  };
-}
-
-// Fonctions utilitaires pour les valeurs par défaut
-function getDefaultDimensions() {
-  return {
-    length: 20, 
-    width: 15, 
-    height: 10, 
-    weight: 1.5, 
-    distance_unit: 'cm', 
-    mass_unit: 'kg'
-  };
-}
-
-function getDefaultAddress(merchant: any) {
-  return {
-    name: merchant.merchantName || merchant.shopName,
-    street1: '123 Main St',
-    city: 'Paris',
-    state: 'Île-de-France',
-    zip: '75001',
-    country: 'FR'
   };
 }

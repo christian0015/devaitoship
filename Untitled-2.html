@@ -1,0 +1,402 @@
+ <script>
+(function(){
+  // CONFIG
+  const API_URL = "http://localhost:3000/api/get_shipping_rates";
+  const CART_LS_KEY = "cartItems";
+
+  // HELPERS
+  const $ = (sel, ctx=document) => ctx.querySelector(sel);
+  const $all = (sel, ctx=document) => Array.from((ctx||document).querySelectorAll(sel));
+  const safeNum = v => (isNaN(Number(v)) ? 0 : Number(v));
+  const formatMoney = v => (typeof v === 'number' && !isNaN(v)) ? v.toFixed(2) + ' €' : 'N/A';
+  const parseCartFromStorage = () => {
+    try {
+      const raw = localStorage.getItem(CART_LS_KEY);
+      if(!raw) return [];
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr : [];
+    } catch(e){
+      console.error('parseCart error', e);
+      return [];
+    }
+  };
+  const normalizeProductsFromCart = (cart) => {
+    const m = new Map();
+    cart.forEach(item=>{
+      const pid = Number(item.id);
+      const qty = Math.max(0, Number(item.quantity) || 0);
+      if(!m.has(pid)){
+        m.set(pid, {
+          productId: pid,
+          quantity: qty,
+          name: item.name || ('#' + pid),
+          image: item.image || '',
+          unitPrice: Number(item.unitPrice || item.oldPrice || 0)
+        });
+      } else {
+        m.get(pid).quantity += qty;
+      }
+    });
+    return Array.from(m.values());
+  };
+  function getSelectedCountryText(){
+    const sel = $('#country');
+    if(!sel) return '';
+    const opt = sel.options[sel.selectedIndex];
+    return (opt && opt.text) ? opt.text.trim() : (sel.value || '');
+  }
+  function getSelectedStateName(){
+    const sel = $('#state');
+    if(!sel) return '';
+    const opt = sel.options[sel.selectedIndex];
+    return (opt && opt.dataset && opt.dataset.name) ? opt.dataset.name : (opt ? opt.text : '');
+  }
+  function getSelectedCityText(){
+    const sel = $('#city');
+    if(!sel) return '';
+    const opt = sel.options[sel.selectedIndex];
+    return (opt && opt.text) ? opt.text.trim() : (sel.value || '');
+  }
+
+  // UI INJECTION (styles + elements)
+  const style = document.createElement('style');
+  style.textContent = `
+  .devaito-fab { position: fixed; right: 18px; bottom: 18px; width:56px; height:56px; border-radius:12px; background:#0ea5e9; display:flex; align-items:center; justify-content:center; box-shadow:0 6px 16px rgba(0,0,0,.18); cursor:pointer; z-index:2147483646; }
+  .devaito-fab svg { width:26px; height:26px; filter: drop-shadow(0 1px 0 rgba(0,0,0,.08)); }
+  .devaito-modal-backdrop{ position:fixed; inset:0; background:rgba(0,0,0,.38); display:none; align-items:center; justify-content:center; z-index:2147483645; }
+  .devaito-modal{ width:520px; max-width:94%; max-height:90vh; overflow:auto; background:#fff; border-radius:10px; padding:12px; box-shadow:0 10px 30px rgba(0,0,0,.25); font-family: Arial, Helvetica, sans-serif; }
+  .devaito-modal .close{ float:right; cursor:pointer; font-size:18px; padding:4px; }
+  .devaito-checklist{ margin:8px 0; padding:8px; border:1px dashed #eee; border-radius:8px; font-size:14px; }
+  .devaito-prod{ display:flex; gap:8px; margin:8px 0; padding:8px; border-radius:8px; border:1px solid #f0f0f0; align-items:center; }
+  .devaito-prod img{ width:56px; height:56px; object-fit:cover; border-radius:6px; }
+  .devaito-rates{ margin-top:8px; }
+  .devaito-rate-option{ display:flex; align-items:center; gap:8px; padding:6px; border-radius:6px; border:1px solid transparent; margin-bottom:6px; cursor:pointer; }
+  .devaito-rate-option input{ margin-right:6px; }
+  .devaito-rate-option.selected{ border-color:#ddd; background:#fbfbfb; }
+  .devaito-footer{ display:flex; justify-content:space-between; align-items:center; margin-top:12px; gap:8px; }
+  .devaito-btn{ padding:8px 12px; border-radius:8px; border:0; cursor:pointer; background:#06b6d4; color:white; }
+  .devaito-btn[disabled]{ opacity:.5; cursor:not-allowed; }
+  .devaito-status-ok{ color:green; font-weight:600; }
+  .devaito-status-bad{ color:#d9534f; font-weight:600; }
+  `;
+  document.head.appendChild(style);
+
+  const fab = document.createElement('div');
+  fab.className = 'devaito-fab';
+  fab.title = 'Estimer les frais de livraison';
+  fab.innerHTML = `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false"><path d="M2 21l21-9L2 3v7l15 2-15 2v7z" fill="#fff"/></svg>`;
+  document.body.appendChild(fab);
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'devaito-modal-backdrop';
+  backdrop.innerHTML = `
+    <div class="devaito-modal" role="dialog" aria-modal="true" aria-label="Estimation frais livraison">
+      <div style="display:flex;align-items:center;gap:8px;">
+        <h3 style="margin:0;font-size:16px;">Estimation livraison</h3>
+        <div class="close" title="Fermer">✕</div>
+      </div>
+      <div class="devaito-checklist" id="devaito-checklist"></div>
+      <div id="devaito-products-area"></div>
+      <div class="devaito-footer">
+        <div>
+          <div><small>Produits total: <span id="devaito-products-total">0</span></small></div>
+          <div><small>Livraison total: <span id="devaito-shipping-total">0</span></small></div>
+        </div>
+        <div>
+          <button class="devaito-btn" id="devaito-estimate-btn" disabled>Estimer</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(backdrop);
+
+  // STATE
+  let visible = false;
+  let shopId = (typeof window.DEVAITO_SHOP_ID !== 'undefined') ? window.DEVAITO_SHOP_ID : null;
+  let cart = parseCartFromStorage();
+  let products = normalizeProductsFromCart(cart);
+  let address = { name:'', street1:'', city:'', state:'', zip:'', country:'' };
+  let latestRates = {};
+  let selectedRateIndex = {};
+
+  // OPEN / CLOSE
+  const openModal = () => { backdrop.style.display = 'flex'; visible = true; refreshUI(); };
+  const closeModal = () => { backdrop.style.display = 'none'; visible = false; };
+  fab.addEventListener('click', openModal);
+  backdrop.addEventListener('click', (e)=>{ if(e.target === backdrop) closeModal(); });
+  $('.close', backdrop).addEventListener('click', closeModal);
+
+  // WATCH localStorage cross-tab
+  window.addEventListener('storage', (e)=>{
+    if(e.key === CART_LS_KEY){
+      cart = parseCartFromStorage();
+      products = normalizeProductsFromCart(cart);
+      if(visible) refreshUI();
+    }
+  });
+  // patch same-tab localStorage.setItem
+  (function(){
+    const original = localStorage.setItem.bind(localStorage);
+    localStorage.setItem = function(k,v){
+      original(k,v);
+      try{ window.dispatchEvent(new CustomEvent('devaito_localstorage_changed', { detail:{ key:k, value:v } })); } catch(e){}
+    };
+  })();
+  window.addEventListener('devaito_localstorage_changed', (e)=>{
+    if(e.detail && e.detail.key === CART_LS_KEY){
+      cart = parseCartFromStorage();
+      products = normalizeProductsFromCart(cart);
+      if(visible) refreshUI();
+    }
+  });
+
+  // WIRE ADDRESS INPUTS (IDs provided in your markup)
+  function wireFormFields(){
+    const fullnameEl = $('#fullname');
+    const phoneEl = $('#phone');
+    const addressEl = $('#address');
+    const postalEl = $('#postal-code');
+    const countryEl = $('#country');
+    const stateEl = $('#state');
+    const cityEl = $('#city');
+
+    if(fullnameEl){
+      address.name = fullnameEl.value || '';
+      fullnameEl.addEventListener('input', ()=>{ address.name = fullnameEl.value || ''; refreshUI(); });
+    }
+    if(phoneEl){
+      // phone is not used for rate calculation but keep it
+      phoneEl.addEventListener('input', ()=> refreshUI());
+    }
+    if(addressEl){
+      address.street1 = addressEl.value || '';
+      addressEl.addEventListener('input', ()=>{ address.street1 = addressEl.value || ''; refreshUI(); });
+    }
+    if(postalEl){
+      address.zip = postalEl.value || '';
+      postalEl.addEventListener('input', ()=>{ address.zip = postalEl.value || ''; refreshUI(); });
+    }
+    if(countryEl){
+      address.country = getSelectedCountryText() || countryEl.value || '';
+      countryEl.addEventListener('change', ()=>{ address.country = getSelectedCountryText() || countryEl.value || ''; refreshUI(); });
+    }
+    if(stateEl){
+      address.state = getSelectedStateName() || stateEl.value || '';
+      stateEl.addEventListener('change', ()=>{ address.state = getSelectedStateName() || stateEl.value || ''; refreshUI(); });
+    }
+    if(cityEl){
+      address.city = getSelectedCityText() || cityEl.value || '';
+      cityEl.addEventListener('change', ()=>{ address.city = getSelectedCityText() || cityEl.value || ''; refreshUI(); });
+    }
+  }
+  wireFormFields();
+
+  // RENDER UI
+  function refreshChecklist(){
+    const el = $('#devaito-checklist', backdrop);
+    const shopOk = !!shopId;
+    const productsOk = products.length > 0;
+    const addressOk = Boolean(address.name && address.street1 && address.city && address.zip && address.country);
+    el.innerHTML = `
+      <div><strong>Vérifications</strong></div>
+      <div>Shop ID: <span class="${shopOk ? 'devaito-status-ok' : 'devaito-status-bad'}">${shopOk ? shopId : 'absent'}</span></div>
+      <div>Produits dans le panier: <span class="${productsOk ? 'devaito-status-ok' : 'devaito-status-bad'}">${products.length}</span></div>
+      <div>Adresse cliente: <span class="${addressOk ? 'devaito-status-ok' : 'devaito-status-bad'}">${addressOk ? 'OK' : 'incomplète'}</span></div>
+      <div style="margin-top:6px;"><small>Les champs surveillés: fullname, address, postal-code, country, state, city</small></div>
+    `;
+    const estimateBtn = $('#devaito-estimate-btn', backdrop);
+    estimateBtn.disabled = !(shopOk && productsOk && addressOk);
+  }
+
+  function renderProductsArea(){
+    const area = $('#devaito-products-area', backdrop);
+    area.innerHTML = '';
+    products.forEach(p=>{
+      const wrapper = document.createElement('div');
+      wrapper.className = 'devaito-prod';
+      wrapper.dataset.productId = p.productId;
+      wrapper.innerHTML = `
+        <img src="${p.image || ''}" alt="${p.name || ''}" />
+        <div style="flex:1;">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <div style="font-weight:600">${p.name}</div>
+            <div>Qty: ${p.quantity}</div>
+          </div>
+          <div style="margin-top:8px;">
+            <div class="devaito-rates" id="devaito-rates-${p.productId}">
+              <small>Pas encore estimé</small>
+            </div>
+          </div>
+        </div>
+      `;
+      area.appendChild(wrapper);
+    });
+    updateTotalsDisplay();
+  }
+
+  function updateTotalsDisplay(){
+    const prodTotalEl = $('#devaito-products-total', backdrop);
+    const shipTotalEl = $('#devaito-shipping-total', backdrop);
+    const prodTotal = products.reduce((s,p)=> s + (safeNum(p.unitPrice) * safeNum(p.quantity) ), 0);
+    const shipTotal = products.reduce((s,p)=>{
+      const sel = selectedRateIndex[p.productId];
+      const arr = latestRates[p.productId] || [];
+      if(typeof sel === 'number' && arr[sel]){
+        const price = extractRatePrice(arr[sel]);
+        return s + (safeNum(price));
+      }
+      return s;
+    }, 0);
+    prodTotalEl.textContent = formatMoney(prodTotal);
+    shipTotalEl.textContent = formatMoney(shipTotal);
+  }
+
+  // RATE PARSING: try many shapes (Shippo or custom)
+  function extractRatePrice(rate){
+    if(!rate) return 0;
+    // common patterns
+    if(typeof rate.amount === 'number') return rate.amount;
+    if(typeof rate.amount === 'string' && !isNaN(parseFloat(rate.amount))) return parseFloat(rate.amount);
+    if(rate.price && typeof rate.price === 'object'){
+      if(typeof rate.price.amount === 'number') return rate.price.amount;
+      if(typeof rate.price.amount === 'string' && !isNaN(parseFloat(rate.price.amount))) return parseFloat(rate.price.amount);
+    }
+    // Shippo style might be rate.amount_local / rate.amount
+    if(typeof rate.amount_local === 'object' && rate.amount_local.amount) return Number(rate.amount_local.amount);
+    if(rate.amount_total) return Number(rate.amount_total);
+    if(rate.total) return Number(rate.total);
+    return 0;
+  }
+
+  // NETWORK: post to API
+  async function doEstimate(){
+    if(!shopId) { alert('Shop ID manquant'); return; }
+    if(!products.length) { alert('Aucun produit dans le panier'); return; }
+    const payload = {
+      shopId: String(shopId),
+      toAddress: {
+        name: address.name || '',
+        street1: address.street1 || '',
+        city: address.city || '',
+        state: address.state || '',
+        zip: address.zip || '',
+        country: address.country || ''
+      },
+      products: products.map(p=> ({ productId: Number(p.productId), quantity: Number(p.quantity) }) )
+    };
+
+    const btn = $('#devaito-estimate-btn', backdrop);
+    btn.disabled = true;
+    const prevText = btn.textContent;
+    btn.textContent = 'Estimation en cours...';
+
+    try {
+      const resp = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await resp.json();
+      handleEstimateResponse(data);
+    } catch(err){
+      console.error('Estimation error', err);
+      alert('Erreur lors de l\'estimation: ' + (err.message || err));
+    } finally {
+      btn.disabled = false;
+      btn.textContent = prevText || 'Estimer';
+    }
+  }
+
+  function handleEstimateResponse(data){
+    latestRates = {};
+    selectedRateIndex = {};
+    if(!data || !Array.isArray(data.products)){
+      alert('Réponse serveur inattendue');
+      return;
+    }
+    data.products.forEach(pr=>{
+      const pid = Number(pr.productId);
+      const rates = Array.isArray(pr.rates) ? pr.rates : [];
+      latestRates[pid] = rates;
+      selectedRateIndex[pid] = rates.length ? 0 : -1;
+      renderRatesForProduct(pid, rates, pr.error);
+    });
+    updateTotalsDisplay();
+  }
+
+  function renderRatesForProduct(productId, rates, error){
+    const container = $(`#devaito-rates-${productId}`, backdrop);
+    if(!container) return;
+    container.innerHTML = '';
+    if(error){
+      container.innerHTML = `<div style="color:#d9534f;">Erreur: ${error}</div>`;
+      return;
+    }
+    if(!rates || rates.length === 0){
+      container.innerHTML = `<small>Aucune offre trouvée</small>`;
+      return;
+    }
+    const list = document.createElement('div');
+    rates.forEach((r, idx)=>{
+      const price = extractRatePrice(r);
+      const name = r.service || r.provider || r.carrier || r.name || `Option ${idx+1}`;
+      const opt = document.createElement('label');
+      opt.className = 'devaito-rate-option' + ((selectedRateIndex[productId]===idx) ? ' selected' : '');
+      opt.innerHTML = `
+        <input type="radio" name="devaito-rate-${productId}" value="${idx}" ${selectedRateIndex[productId]===idx ? 'checked' : ''} />
+        <div style="flex:1;">
+          <div style="font-weight:600">${name}</div>
+          <div style="font-size:12px;">${r.estimated_days ? r.estimated_days + ' jours' : ''} ${r.notes ? (' - '+r.notes) : ''}</div>
+        </div>
+        <div style="min-width:86px;text-align:right;font-weight:600">${price ? formatMoney(price) : 'N/A'}</div>
+      `;
+      const input = opt.querySelector('input');
+      input.addEventListener('change', ()=>{
+        selectedRateIndex[productId] = idx;
+        $all(`#devaito-rates-${productId} .devaito-rate-option`).forEach((el, i)=>{
+          el.classList.toggle('selected', i===idx);
+        });
+        updateTotalsDisplay();
+      });
+      opt.addEventListener('click', ()=> input.checked = true);
+      list.appendChild(opt);
+    });
+    container.appendChild(list);
+  }
+
+  // WIRE estimate button
+  $('#devaito-estimate-btn', backdrop).addEventListener('click', doEstimate);
+
+  // REFRESH UI
+  function refreshUI(){
+    // re-sync shopId in case it was injected/changed
+    shopId = (typeof window.DEVAITO_SHOP_ID !== 'undefined') ? window.DEVAITO_SHOP_ID : shopId;
+    refreshChecklist();
+    renderProductsArea();
+  }
+
+  // INITIAL hydrate and watchers
+  cart = parseCartFromStorage();
+  products = normalizeProductsFromCart(cart);
+  refreshUI();
+
+  // light interval to detect cart changes if other scripts modify without storage events
+  setInterval(()=>{
+    const newCart = parseCartFromStorage();
+    const newProducts = normalizeProductsFromCart(newCart);
+    if(JSON.stringify(newProducts) !== JSON.stringify(products)){
+      cart = newCart;
+      products = newProducts;
+      if(visible) refreshUI();
+    }
+  }, 2000);
+
+  // expose API for page scripts
+  window.DEVAITO_shipping_widget = {
+    open: openModal,
+    close: closeModal,
+    recheck: refreshUI,
+    estimateNow: doEstimate
+  };
+
+})();
+</script>

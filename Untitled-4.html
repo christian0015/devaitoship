@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estimateur de frais de livraison</title>
+    <style>
+        /* Styles pour le bouton flottant et la popup */
+        #shipping-estimator-fab {
+            position: fixed;
+            bottom: 20px; right: 20px;
+            background: #007bff; color: white;
+            border: none; border-radius: 50%;
+            width: 50px; height: 50px;
+            font-size: 24px; cursor: pointer;
+            z-index: 1000;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+
+        #shipping-estimator-fab:hover {
+            background: #0069d9;
+            transform: scale(1.05);
+        }
+
+        #shipping-modal-overlay {
+            display: none;
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1001;
+        }
+
+        #shipping-modal {
+            position: fixed;
+            background: white;
+            padding: 25px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 85vh;
+            overflow-y: auto;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            border-radius: 10px;
+            box-shadow: 0 5px 25px rgba(0,0,0,0.3);
+        }
+
+        #shipping-modal h2 {
+            margin-top: 0;
+            color: #333;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 15px;
+        }
+
+        #shipping-modal label {
+            display: block;
+            margin-top: 15px;
+            font-weight: bold;
+            color: #555;
+        }
+
+        #shipping-modal input, #shipping-modal select {
+            width: 100%;
+            padding: 12px;
+            margin-top: 6px;
+            box-sizing: border-box;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 15px;
+        }
+
+        #shipping-modal button {
+            margin-top: 20px;
+            padding: 12px 24px;
+            background: #28a745; color: white;
+            border: none; border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+
+        #shipping-modal button:hover {
+            background: #218838;
+        }
+
+        #shipping-modal button:disabled {
+            background: gray;
+            cursor: not-allowed;
+        }
+
+        #shipping-results {
+            margin-top: 20px;
+        }
+
+        .product-shipping {
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            background: #f9f9f9;
+        }
+
+        .product-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .product-image {
+            width: 70px;
+            height: 70px;
+            object-fit: contain;
+            margin-right: 15px;
+            border-radius: 5px;
+            background: white;
+            padding: 5px;
+            border: 1px solid #eee;
+        }
+
+        .product-info {
+            flex: 1;
+        }
+
+        .product-name {
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 16px;
+        }
+
+        .product-quantity {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .shipping-option {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .shipping-option:hover {
+            background: #f0f8ff;
+            border-color: #007bff;
+        }
+
+        .shipping-option.selected {
+            background: #e6f7ff;
+            border-color: #007bff;
+        }
+
+        .carrier-img {
+            width: 45px;
+            height: 45px;
+            object-fit: contain;
+            margin-right: 15px;
+            background: white;
+            padding: 5px;
+            border-radius: 4px;
+            border: 1px solid #eee;
+        }
+
+        .option-details {
+            flex: 1;
+        }
+
+        .option-service {
+            font-weight: bold;
+            margin-bottom: 4px;
+            font-size: 15px;
+        }
+
+        .option-price {
+            color: #28a745;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .option-days {
+            color: #666;
+            font-size: 13px;
+            margin-top: 3px;
+        }
+
+        .totals {
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 2px solid #eee;
+        }
+
+        .total-line {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            font-size: 16px;
+        }
+
+        .total-label {
+            font-weight: bold;
+        }
+
+        .total-final {
+            font-size: 20px;
+            font-weight: bold;
+            color: #007bff;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 30px;
+            color: #666;
+        }
+
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            color: #dc3545;
+            padding: 15px;
+            background: #f8d7da;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            color: #999;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .close-btn:hover {
+            color: #333;
+        }
+
+        .section-title {
+            font-size: 18px;
+            margin: 20px 0 15px;
+            color: #333;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 8px;
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            #shipping-modal {
+                width: 95%;
+                padding: 20px 15px;
+            }
+            
+            .product-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .product-image {
+                margin-bottom: 10px;
+                margin-right: 0;
+            }
+            
+            .shipping-option {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .carrier-img {
+                margin-bottom: 10px;
+                margin-right: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Votre formulaire principal ici -->
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Mapping des codes pays (ID vers code ISO)
+            const countryCodeMap = {
+                '75': 'FR', // France
+                '21': 'BE', // Belgique
+                '212': 'CH', // Suisse
+                '38': 'CA', // Canada
+                '231': 'US', // États-Unis
+                // Ajouter d'autres pays au besoin
+            };
+
+            // 1) Création et insertion du bouton flottant (FAB)
+            const fab = document.createElement('button');
+            fab.id = 'shipping-estimator-fab';
+            fab.textContent = '🚚';
+            fab.title = 'Estimer les frais de livraison';
+            document.body.appendChild(fab);
+
+            // 2) Création du modal et de l'overlay (initialement cachés)
+            const overlay = document.createElement('div');
+            overlay.id = 'shipping-modal-overlay';
+            document.body.appendChild(overlay);
+
+            const modal = document.createElement('div');
+            modal.id = 'shipping-modal';
+            overlay.appendChild(modal);
+
+            // Bouton de fermeture
+            const closeBtn = document.createElement('button');
+            closeBtn.className = 'close-btn';
+            closeBtn.innerHTML = '&times;';
+            closeBtn.addEventListener('click', () => {
+                overlay.style.display = 'none';
+            });
+            modal.appendChild(closeBtn);
+
+            // Titre du modal
+            const title = document.createElement('h2');
+            title.textContent = 'Simulation des frais de livraison';
+            modal.appendChild(title);
+
+            // Conteneur pour les champs de formulaire
+            const formContainer = document.createElement('div');
+            formContainer.id = 'shipping-form-container';
+            modal.appendChild(formContainer);
+
+            // Bouton Estimer
+            const estimateBtn = document.createElement('button');
+            estimateBtn.id = 'estimate-btn';
+            estimateBtn.textContent = 'Estimer';
+            estimateBtn.disabled = true;
+            modal.appendChild(estimateBtn);
+
+            // Zone pour afficher les résultats
+            const resultsDiv = document.createElement('div');
+            resultsDiv.id = 'shipping-results';
+            modal.appendChild(resultsDiv);
+
+            // Liste des champs d'adresse requis
+            const requiredFields = [
+                {id: 'fullname', label: 'Nom complet', type: 'text'},
+                {id: 'address', label: 'Adresse', type: 'text'},
+                {id: 'postal-code', label: 'Code postal', type: 'text'},
+                {id: 'country', label: 'Pays', type: 'select'},
+                {id: 'state', label: 'État/Région', type: 'text'},
+                {id: 'city', label: 'Ville', type: 'text'}
+            ];
+
+            // Fonction pour ouvrir le modal et générer dynamiquement les champs manquants
+            function showModal() {
+                // Réinitialiser la popup
+                formContainer.innerHTML = '';
+                resultsDiv.innerHTML = '';
+                estimateBtn.disabled = true;
+                resultsDiv.style.display = 'none';
+
+                // Détecter les champs manquants
+                const missingFields = [];
+                requiredFields.forEach(field => {
+                    const mainEl = document.getElementById(field.id);
+                    if (mainEl) {
+                        const val = mainEl.value.trim();
+                        if (!val) {
+                            missingFields.push(field);
+                        }
+                    }
+                });
+
+                // Si aucun champ n'est manquant, on peut directement estimer
+                if (missingFields.length === 0) {
+                    estimateShipping();
+                    return;
+                }
+
+                // Pour chaque champ manquant, créer input/select dans la popup
+                missingFields.forEach(field => {
+                    const label = document.createElement('label');
+                    label.textContent = field.label + ' :';
+                    label.htmlFor = 'modal-' + field.id;
+                    formContainer.appendChild(label);
+
+                    let input;
+                    if (field.id === 'country') {
+                        input = document.createElement('select');
+                        input.id = 'modal-country';
+                        
+                        // Cloner les options du select principal
+                        const mainSelect = document.getElementById('country');
+                        if (mainSelect) {
+                            for (let option of mainSelect.options) {
+                                const newOption = document.createElement('option');
+                                newOption.value = option.value;
+                                newOption.textContent = option.text;
+                                if (option.selected) newOption.selected = true;
+                                input.appendChild(newOption);
+                            }
+                        }
+                    } else {
+                        input = document.createElement('input');
+                        input.type = field.type;
+                        input.placeholder = field.label;
+                        input.id = 'modal-' + field.id;
+                    }
+                    
+                    formContainer.appendChild(input);
+
+                    // Pré-remplir si la valeur existe dans le formulaire principal
+                    const mainEl = document.getElementById(field.id);
+                    if (mainEl && mainEl.value) {
+                        input.value = mainEl.value;
+                    }
+
+                    // Synchroniser popup -> formulaire principal
+                    input.addEventListener('input', (e) => {
+                        if (mainEl) {
+                            mainEl.value = e.target.value;
+                        }
+                        checkAllFields();
+                    });
+                });
+
+                // Synchroniser formulaire principal -> popup (pour chaque champ requis)
+                requiredFields.forEach(field => {
+                    const mainEl = document.getElementById(field.id);
+                    if (mainEl) {
+                        mainEl.addEventListener('input', (e) => {
+                            const modalEl = document.getElementById('modal-' + field.id);
+                            if (modalEl) {
+                                modalEl.value = e.target.value;
+                            }
+                            checkAllFields();
+                        });
+                    }
+                });
+
+                // Afficher le modal
+                overlay.style.display = 'block';
+                checkAllFields();
+            }
+
+            // Fonction pour vérifier que tous les champs sont remplis
+            function checkAllFields() {
+                const allFilled = requiredFields.every(field => {
+                    const el = document.getElementById(field.id);
+                    return el && el.value.trim() !== '';
+                });
+                
+                const estimateBtn = document.getElementById('estimate-btn');
+                if (estimateBtn) {
+                    estimateBtn.disabled = !allFilled;
+                }
+            }
+
+            // Fonction pour obtenir le code pays à partir de l'ID
+            function getCountryCode(countryId) {
+                return countryCodeMap[countryId] || '';
+            }
+
+            // Fonction pour récupérer les produits du panier depuis le localStorage
+            function getCartProducts() {
+                try {
+                    const cartItems = JSON.parse(localStorage.getItem('cartItems')) || [];
+                    return cartItems.map(item => ({
+                        productId: parseInt(item.id),
+                        quantity: item.quantity
+                    }));
+                } catch (e) {
+                    console.error('Erreur lors de la récupération du panier:', e);
+                    return [];
+                }
+            }
+
+            // Gestion du clic sur le bouton Estimer : appel API d'estimation
+            async function estimateShipping() {
+                // Afficher indicateur de chargement
+                resultsDiv.innerHTML = `
+                    <div class="loading">
+                        <div class="loading-spinner"></div>
+                        <div>Calcul des frais de livraison...</div>
+                    </div>`;
+                resultsDiv.style.display = 'block';
+                
+                const estimateBtn = document.getElementById('estimate-btn');
+                if (estimateBtn) estimateBtn.disabled = true;
+
+                // Récupérer les valeurs d'adresse
+                const countryId = document.getElementById('country').value;
+                const countryCode = "France"
+                
+                if (!countryCode) {
+                    resultsDiv.innerHTML = `<div class="error">Pays non supporté pour l'estimation. Veuillez choisir un autre pays.</div>`;
+                    if (estimateBtn) estimateBtn.disabled = false;
+                    return;
+                }
+
+                const addressData = {
+                    name: document.getElementById('fullname').value.trim(),
+                    street1: document.getElementById('address').value.trim(),
+                    city: document.getElementById('city').value.trim(),
+                    state: document.getElementById('state').value.trim(),
+                    zip: document.getElementById('postal-code').value.trim(),
+                    country: countryCode
+                };
+
+                // Récupérer les produits du panier
+                const products = getCartProducts();
+                
+                if (products.length === 0) {
+                    resultsDiv.innerHTML = '<div class="error">Votre panier est vide.</div>';
+                    if (estimateBtn) estimateBtn.disabled = false;
+                    return;
+                }
+
+                // Préparer les données pour l'API
+                const requestData = {
+                    shopId: "68c94bda80a0b01b112de19e",
+                    toAddress: addressData,
+                    products: products
+                };
+
+                try {
+                    // Utilisation d'un endpoint de test pour le développement local
+                    const apiUrl = window.location.hostname === 'localhost' 
+                        ? 'http://localhost:3000/api/get_shipping_rates' 
+                        : 'https://devaitoship.vercel.app/api/get_shipping_rates';
+                    
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(requestData)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Erreur API: ${response.status} ${response.statusText}`);
+                    }
+
+                    const data = await response.json();
+                    displayShippingResults(data, products);
+                } catch (err) {
+                    console.error('Erreur:', err);
+                    resultsDiv.innerHTML = `
+                        <div class="error">
+                            Erreur lors de la récupération des tarifs: ${err.message}
+                            <div style="margin-top: 10px; font-size: 14px;">
+                                Assurez-vous que l'API est accessible et que votre adresse est valide.
+                            </div>
+                        </div>`;
+                } finally {
+                    if (estimateBtn) estimateBtn.disabled = false;
+                }
+            }
+
+            // Fonction pour afficher les résultats de livraison
+            function displayShippingResults(data, cartProducts) {
+                resultsDiv.innerHTML = '';
+                
+                if (!data.products || data.products.length === 0) {
+                    resultsDiv.innerHTML = '<div class="error">Aucun tarif de livraison disponible pour cette destination.</div>';
+                    return;
+                }
+
+                // Récupérer les détails des produits depuis le localStorage
+                const cartItems = JSON.parse(localStorage.getItem('cartItems')) || [];
+                
+                // Afficher les options de livraison pour chaque produit
+                data.products.forEach(productData => {
+                    // Trouver les détails du produit dans le panier
+                    const productDetails = cartItems.find(item => parseInt(item.id) === productData.productId);
+                    
+                    if (!productDetails) return;
+                    
+                    const productDiv = document.createElement('div');
+                    productDiv.className = 'product-shipping';
+                    
+                    // En-tête du produit
+                    const productHeader = document.createElement('div');
+                    productHeader.className = 'product-header';
+                    
+                    const productImage = document.createElement('img');
+                    productImage.className = 'product-image';
+                    productImage.src = productDetails.image;
+                    productImage.alt = productDetails.name;
+                    
+                    const productInfo = document.createElement('div');
+                    productInfo.className = 'product-info';
+                    
+                    const productName = document.createElement('div');
+                    productName.className = 'product-name';
+                    productName.textContent = productDetails.name;
+                    
+                    const productQuantity = document.createElement('div');
+                    productQuantity.className = 'product-quantity';
+                    productQuantity.textContent = `Quantité: ${productDetails.quantity} - Prix: ${(parseFloat(productDetails.unitPrice) * productDetails.quantity).toFixed(2)} €`;
+                    
+                    productInfo.appendChild(productName);
+                    productInfo.appendChild(productQuantity);
+                    productHeader.appendChild(productImage);
+                    productHeader.appendChild(productInfo);
+                    productDiv.appendChild(productHeader);
+                    
+                    // Options de livraison
+                    if (productData.rates && productData.rates.length > 0) {
+                        const optionsTitle = document.createElement('div');
+                        optionsTitle.className = 'section-title';
+                        optionsTitle.textContent = 'Options de livraison:';
+                        productDiv.appendChild(optionsTitle);
+                        
+                        productData.rates.forEach(rate => {
+                            const optionDiv = document.createElement('div');
+                            optionDiv.className = 'shipping-option';
+                            optionDiv.dataset.price = rate.price;
+                            optionDiv.dataset.productId = productData.productId;
+                            
+                            optionDiv.innerHTML = `
+                                <img src="${rate.img}" class="carrier-img" alt="${rate.carrier}">
+                                <div class="option-details">
+                                    <div class="option-service">${rate.service} - ${rate.carrier}</div>
+                                    <div class="option-price">${rate.price} ${rate.currency}</div>
+                                    ${rate.estimated_days ? `<div class="option-days">Délai estimé: ${rate.estimated_days} jours</div>` : '<div class="option-days">Délai non spécifié</div>'}
+                                </div>
+                            `;
+                            
+                            optionDiv.addEventListener('click', function() {
+                                // Désélectionner les autres options pour ce produit
+                                document.querySelectorAll(`.shipping-option[data-product-id="${productData.productId}"]`).forEach(opt => {
+                                    if (opt !== this) opt.classList.remove('selected');
+                                });
+                                
+                                this.classList.toggle('selected');
+                                calculateTotal(data, cartItems);
+                            });
+                            
+                            productDiv.appendChild(optionDiv);
+                        });
+                    } else {
+                        const noRates = document.createElement('div');
+                        noRates.textContent = 'Aucune option de livraison disponible pour ce produit.';
+                        noRates.style.color = '#dc3545';
+                        noRates.style.marginTop = '10px';
+                        productDiv.appendChild(noRates);
+                    }
+                    
+                    resultsDiv.appendChild(productDiv);
+                });
+                
+                // Ajouter la section des totaux
+                const totalsDiv = document.createElement('div');
+                totalsDiv.className = 'totals';
+                totalsDiv.innerHTML = `
+                    <div class="section-title">Récapitulatif</div>
+                    <div class="total-line">
+                        <span class="total-label">Total produits:</span>
+                        <span id="total-products">0.00 €</span>
+                    </div>
+                    <div class="total-line">
+                        <span class="total-label">Total livraison:</span>
+                        <span id="total-shipping">0.00 €</span>
+                    </div>
+                    <div class="total-line total-final">
+                        <span class="total-label">Total:</span>
+                        <span id="total-final">0.00 €</span>
+                    </div>
+                `;
+                
+                resultsDiv.appendChild(totalsDiv);
+                calculateTotal(data, cartItems);
+            }
+
+            // Fonction pour calculer le total
+            function calculateTotal(data, cartItems) {
+                let totalProducts = 0;
+                let totalShipping = 0;
+                
+                // Calculer le total des produits
+                cartItems.forEach(item => {
+                    totalProducts += parseFloat(item.unitPrice) * item.quantity;
+                });
+                
+                // Calculer le total de la livraison
+                document.querySelectorAll('.shipping-option.selected').forEach(option => {
+                    totalShipping += parseFloat(option.dataset.price);
+                });
+                
+                // Mettre à jour l'affichage
+                const totalProductsEl = document.getElementById('total-products');
+                const totalShippingEl = document.getElementById('total-shipping');
+                const totalFinalEl = document.getElementById('total-final');
+                
+                if (totalProductsEl) totalProductsEl.textContent = totalProducts.toFixed(2) + ' €';
+                if (totalShippingEl) totalShippingEl.textContent = totalShipping.toFixed(2) + ' €';
+                if (totalFinalEl) totalFinalEl.textContent = (totalProducts + totalShipping).toFixed(2) + ' €';
+            }
+
+            // Événements divers : ouverture/fermeture du modal
+            fab.addEventListener('click', showModal);
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) overlay.style.display = 'none';
+            });
+            
+            const estimateBtnElement = document.getElementById('estimate-btn');
+            if (estimateBtnElement) {
+                estimateBtnElement.addEventListener('click', estimateShipping);
+            }
+        });
+    </script>
+</body>
+</html>

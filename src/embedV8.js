@@ -1122,11 +1122,6 @@ if (typeof window.devaitoInitialized === 'undefined') {
         };
       }
 
-      /**
-       * Prépare les requêtes d'expédition en gérant correctement les quantités
-       * Pour respecter les limitations de Shippo, on crée un seul colis par produit
-       * en ajustant les dimensions en fonction de la quantité
-       */
       function prepareRequests(){
         var groups={};
         products.forEach(function(prod){
@@ -1139,23 +1134,18 @@ if (typeof window.devaitoInitialized === 'undefined') {
           var key=JSON.stringify(prod.fromAddress);
           if(!groups[key]) groups[key]={from:prod.fromAddress, parcels:[]};
           
-          // Pour chaque produit, créer un seul colis avec les dimensions ajustées selon la quantité
-          const quantity = prod.quantity;
-          const baseDimensions = prod.dimensions;
-          
-          // Calculer les dimensions ajustées en fonction de la quantité
-          const adjustedDimensions = calculateAdjustedDimensions(baseDimensions, quantity);
-          
-          const parcel = {
-            length: adjustedDimensions.length,
-            width: adjustedDimensions.width,
-            height: adjustedDimensions.height,
-            distance_unit: baseDimensions.distance_unit || 'cm',
-            weight: adjustedDimensions.weight,
-            mass_unit: baseDimensions.mass_unit || 'kg'
-          };
-          
-          groups[key].parcels.push(parcel);
+          // Pour chaque produit, créer un colis par unité
+          for(let i = 0; i < prod.quantity; i++) {
+            const parcel = {
+              length: prod.dimensions.length,
+              width: prod.dimensions.width,
+              height: prod.dimensions.height,
+              distance_unit: prod.dimensions.distance_unit || 'cm',
+              weight: prod.dimensions.weight,
+              mass_unit: prod.dimensions.mass_unit || 'kg'
+            };
+            groups[key].parcels.push(parcel);
+          }
         });
         
         var result=[];
@@ -1169,46 +1159,6 @@ if (typeof window.devaitoInitialized === 'undefined') {
         
         prodLog.info(`${result.length} groupes d'expédition préparés`);
         return result;
-      }
-
-      /**
-       * Calcule les dimensions ajustées en fonction de la quantité
-       * Pour éviter les colis trop hauts, on répartit la hauteur sur la largeur si nécessaire
-       * @param {Object} baseDimensions - Dimensions de base du produit
-       * @param {number} quantity - Quantité du produit
-       * @returns {Object} Dimensions ajustées
-       */
-      function calculateAdjustedDimensions(baseDimensions, quantity) {
-        const MAX_HEIGHT = 100; // Hauteur maximale en cm
-        const baseHeight = baseDimensions.height || 10;
-        const baseWidth = baseDimensions.width || 15;
-        const baseLength = baseDimensions.length || 20;
-        const baseWeight = baseDimensions.weight || 1.5;
-        
-        let adjustedHeight = baseHeight * quantity;
-        let adjustedWidth = baseWidth;
-        let adjustedLength = baseLength;
-        
-        // Si la hauteur dépasse la limite maximale, on répartit sur la largeur
-        if (adjustedHeight > MAX_HEIGHT) {
-          const excessHeight = adjustedHeight - MAX_HEIGHT;
-          const stacks = Math.ceil(adjustedHeight / MAX_HEIGHT);
-          
-          // Répartir l'excédent de hauteur sur la largeur
-          adjustedHeight = MAX_HEIGHT;
-          adjustedWidth = baseWidth * stacks;
-          
-          prodLog.debug(`Hauteur ajustée: ${baseHeight} × ${quantity} = ${baseHeight * quantity}cm → ${adjustedHeight}cm × ${stacks} stacks`);
-        }
-        
-        return {
-          length: adjustedLength,
-          width: adjustedWidth,
-          height: adjustedHeight,
-          weight: baseWeight * quantity,
-          distance_unit: baseDimensions.distance_unit || 'cm',
-          mass_unit: baseDimensions.mass_unit || 'kg'
-        };
       }
 
       function showError(message) {

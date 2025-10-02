@@ -83,3 +83,43 @@ content-type: application/json
     }
   ]
 }
+
+###
+POST https://devaitoship.vercel.app/api/get_shipping_rates HTTP/1.1
+content-type: application/json
+
+{
+  "shopId": "68c94bda80a0b01b112de19e",
+  "toAddress": {
+    "name": "Marie Martin",
+    "street1": "22 Avenue des Champs-Élysées",
+    "city": "Paris",
+    "state": "Île-de-France",
+    "zip": "75008",
+    "country": "FR"
+  },
+  "products": [
+    {
+      "productId": 4
+    }
+  ]
+}
+
+
+### Récupérer les états d’un pays
+POST https://asusgame.devaito.com/api/v1/ecommerce-core/get-cities-of-state
+Content-Type: application/json
+
+{
+  "state_id": 2505
+}
+
+### Tester get_shop_data_v2 en local
+POST http://localhost:3000/api/get_shop_data_v2
+Content-Type: application/json
+
+{
+  "shopId": "68de2a6451990258eab1bf1e",
+  "slugs": ["httpswwwasuscomfrrogrog-strix-scope"],
+  "productIds": []
+}

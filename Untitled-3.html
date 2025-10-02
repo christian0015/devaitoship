@@ -1,0 +1,244 @@
+<style>
+/* Styles pour le bouton flottant et la popup */
+#shipping-estimator-fab {
+  position: fixed;
+  bottom: 20px; right: 20px;
+  background: #007bff; color: white;
+  border: none; border-radius: 50%;
+  width: 50px; height: 50px;
+  font-size: 24px; cursor: pointer;
+  z-index: 1000;
+}
+#shipping-modal-overlay {
+  display: none;
+  position: fixed; top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.5);
+  z-index: 1001;
+}
+#shipping-modal {
+  position: fixed;
+  background: white;
+  padding: 20px;
+  max-width: 400px;
+  width: 90%;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 5px;
+}
+#shipping-modal h2 {
+  margin-top: 0;
+}
+#shipping-modal label {
+  display: block;
+  margin-top: 10px;
+}
+#shipping-modal input, #shipping-modal select {
+  width: 100%;
+  padding: 8px;
+  margin-top: 5px;
+  box-sizing: border-box;
+}
+#shipping-modal button {
+  margin-top: 15px;
+  padding: 10px 20px;
+  background: #28a745; color: white;
+  border: none; border-radius: 4px;
+  cursor: pointer;
+}
+#shipping-modal button:disabled {
+  background: gray;
+  cursor: not-allowed;
+}
+#shipping-results {
+  margin-top: 15px;
+}
+</style>
+
+<script>
+// Fonction appelée quand le DOM est prêt
+window.addEventListener('DOMContentLoaded', function() {
+  // 1) Création et insertion du bouton flottant (FAB)
+  const fab = document.createElement('button');
+  fab.id = 'shipping-estimator-fab';
+  fab.textContent = '🚚';  // icône ou texte
+  document.body.appendChild(fab);
+
+  // 2) Création du modal et de l'overlay (initialement cachés)
+  const overlay = document.createElement('div');
+  overlay.id = 'shipping-modal-overlay';
+  document.body.appendChild(overlay);
+
+  const modal = document.createElement('div');
+  modal.id = 'shipping-modal';
+  overlay.appendChild(modal);
+
+  // Titre du modal
+  const title = document.createElement('h2');
+  title.textContent = 'Simulation des frais de livraison';
+  modal.appendChild(title);
+
+  // Conteneur pour les champs de formulaire
+  const formContainer = document.createElement('div');
+  modal.appendChild(formContainer);
+
+  // Bouton Estimer
+  const estimateBtn = document.createElement('button');
+  estimateBtn.id = 'estimate-btn';
+  estimateBtn.textContent = 'Estimer';
+  estimateBtn.disabled = true; // désactivé par défaut
+  modal.appendChild(estimateBtn);
+
+  // Zone pour afficher les résultats
+  const resultsDiv = document.createElement('div');
+  resultsDiv.id = 'shipping-results';
+  modal.appendChild(resultsDiv);
+
+  // Liste des champs d'adresse requis
+  const requiredFields = [
+    {id: 'fullname', label: 'Nom complet', type: 'text'},
+    {id: 'address', label: 'Adresse', type: 'text'},
+    {id: 'postal-code', label: 'Code postal', type: 'text'},
+    {id: 'country', label: 'Pays', type: 'select',
+      options: [
+        {value: '', text: 'Sélectionner un pays'},
+        {value: 'FR', text: 'France'},
+        {value: 'BE', text: 'Belgique'},
+        {value: 'CH', text: 'Suisse'},
+        {value: 'CA', text: 'Canada'}
+      ]
+    },
+    {id: 'state', label: 'État/Région', type: 'text'},
+    {id: 'city', label: 'Ville', type: 'text'}
+  ];
+
+  // Fonction pour ouvrir le modal et générer dynamiquement les champs manquants
+  function showModal() {
+    // Réinitialiser la popup
+    formContainer.innerHTML = '';
+    resultsDiv.innerHTML = '';
+    estimateBtn.disabled = true;
+    resultsDiv.style.display = 'none';
+
+    // 3) Détecter les champs manquants
+    const missingFields = [];
+    requiredFields.forEach(field => {
+      const mainEl = document.getElementById(field.id);
+      if (mainEl) {
+        const val = mainEl.value.trim();
+        if (!val) {
+          missingFields.push(field);
+        }
+      }
+    });
+
+    // 4) Pour chaque champ manquant, créer input/select dans la popup
+    missingFields.forEach(field => {
+      const label = document.createElement('label');
+      label.textContent = field.label + ' :';
+      formContainer.appendChild(label);
+
+      let input;
+      if (field.type === 'select') {
+        input = document.createElement('select');
+        field.options.forEach(optData => {
+          const opt = document.createElement('option');
+          opt.value = optData.value;
+          opt.textContent = optData.text;
+          input.appendChild(opt);
+        });
+      } else {
+        input = document.createElement('input');
+        input.type = field.type;
+        input.placeholder = field.label;
+      }
+      input.id = 'modal-' + field.id;
+      formContainer.appendChild(input);
+
+      // 5) Pré-remplir si la valeur existe dans le formulaire principal
+      const mainEl = document.getElementById(field.id);
+      if (mainEl && mainEl.value) {
+        input.value = mainEl.value;
+      }
+
+      // 6) Synchroniser popup -> formulaire principal
+      input.addEventListener('input', (e) => {
+        if (mainEl) {
+          mainEl.value = e.target.value; // mise à jour du formulaire principal
+        }
+        checkAllFields(); // vérifier si on peut activer le bouton Estimer
+      });
+    });
+
+    // 7) Synchroniser formulaire principal -> popup (pour chaque champ requis)
+    requiredFields.forEach(field => {
+      const mainEl = document.getElementById(field.id);
+      if (mainEl) {
+        mainEl.addEventListener('input', (e) => {
+          const modalEl = document.getElementById('modal-' + field.id);
+          if (modalEl) {
+            modalEl.value = e.target.value; // mettre à jour la popup si visible
+          }
+          checkAllFields();
+        });
+      }
+    });
+
+    // Afficher le modal
+    overlay.style.display = 'block';
+  }
+
+  // Fonction pour vérifier que tous les champs sont remplis
+  function checkAllFields() {
+    const allFilled = requiredFields.every(field => {
+      const el = document.getElementById(field.id);
+      return el && el.value.trim() !== '';
+    });
+    estimateBtn.disabled = !allFilled;
+  }
+
+  // 8) Gestion du clic sur le bouton Estimer : appel API d'estimation
+  async function estimateShipping() {
+    // Récupérer les valeurs d'adresse
+    const country = document.getElementById('country').value.trim();
+    const state = document.getElementById('state').value.trim();
+    const postal = document.getElementById('postal-code').value.trim();
+    // Appel POST pour préparer les tarifs
+    const params = `shipping_address[country]=${country}&shipping_address[province]=${state}&shipping_address[zip]=${postal}`;
+    try {
+      await fetch(`/cart/prepare_shipping_rates.json?${params}`, { method: 'POST' });
+      // Récupérer les tarifs (loop jusqu'à ce qu'ils soient prêts)
+      let data = null;
+      while (!data) {
+        const res = await fetch(`/cart/async_shipping_rates.json?${params}`);
+        data = await res.json();
+        if (!data) {
+          // Si null, attendre une seconde et ré-essayer
+          await new Promise(r => setTimeout(r, 1000));
+        }
+      }
+      // Afficher les tarifs reçus
+      resultsDiv.style.display = 'block';
+      resultsDiv.innerHTML = '<h3>Tarifs de livraison :</h3>';
+      if (data.shipping_rates && data.shipping_rates.length) {
+        data.shipping_rates.forEach(rate => {
+          const div = document.createElement('div');
+          div.textContent = rate.name + ' - ' + rate.price + ' (monnaie affichée)';
+          resultsDiv.appendChild(div);
+        });
+      } else {
+        resultsDiv.innerHTML += '<p>Aucun tarif trouvé.</p>';
+      }
+    } catch (err) {
+      resultsDiv.innerHTML = '<p>Erreur lors de la récupération des tarifs.</p>';
+      console.error(err);
+    }
+  }
+
+  // Événements divers : ouverture/fermeture du modal
+  fab.addEventListener('click', showModal);
+  overlay.addEventListener('click', () => overlay.style.display = 'none');
+  modal.addEventListener('click', (e) => e.stopPropagation()); // clic dans le modal n'active pas l'overlay
+  estimateBtn.addEventListener('click', estimateShipping);
+});
+</script>
