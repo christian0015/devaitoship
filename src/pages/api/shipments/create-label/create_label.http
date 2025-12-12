@@ -1,0 +1,37 @@
+
+POST http://localhost:3000/api/shipments/create-label/route
+ne passe pas
+
+###
+POST http://localhost:3000/api/create-label
+content-type: application/json
+
+{
+  "rateId": "dee40a409fef408585c1069da58596aa",
+  "relay_token":"chronopost_10",
+  "shopUrl": "https://airpod4d.devaito.com",
+  "orderData": {
+    "orderId": "ORDER_124",
+    "orderNumber": "#123",
+    "customerName": "Jean Dupont",
+    "customerEmail": "jean@email.com",
+    "customerPhone": "+33123456789",
+    "shippingAddress": {
+      "name": "Jean Dupont",
+      "street1": "123 Rue Example",
+      "city": "Paris",
+      "state": "Île-de-France",
+      "zip": "75001",
+      "country": "FR",
+      "phone": "+33123456789",
+      "email": "jean@email.com"
+    },
+    "items": [
+      {
+        "name": "Produit 1",
+        "quantity": 2,
+        "weight": 0.5
+      }
+    ]
+  }
+}

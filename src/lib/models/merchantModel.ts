@@ -61,6 +61,7 @@ export interface IMerchant extends Document {
   // NOUVEAUX CHAMPS OPTIONNELS
   shippingAddress?: IShippingAddress;
   defaultDimensions?: IDimensions;
+  apiKey: string;
 
   createdAt: Date;
 }
@@ -106,6 +107,7 @@ const merchantSchema = new Schema<IMerchant>(
     // Nouveaux champs optionnels
     shippingAddress: { type: shippingAddressSchema },
     defaultDimensions: { type: dimensionsSchema },
+    apiKey: { type: String }, // Utilisation du setter de chiffrement
 
     createdAt: { type: Date, default: Date.now },
   },
@@ -154,6 +156,10 @@ export async function updateMerchant(shopUrl: string, update: Partial<IMerchant>
 
 export async function updateMerchantById(id: string, update: Partial<IMerchant>) {
   return MerchantModel.findByIdAndUpdate(id, update, { new: true }).exec();
+}
+
+export async function deleteMerchantById(id: string) {
+  return MerchantModel.findByIdAndDelete(id).exec();
 }
 
 export default MerchantModel;

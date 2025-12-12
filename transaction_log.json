@@ -1,0 +1,35 @@
+{
+  "object_state": "VALID",
+  "status": "ERROR",
+  "object_created": "2025-12-06T09:20:54.903Z",
+  "object_updated": "2025-12-06T09:20:55.191Z",
+  "object_id": "9254d33f72354102bc681ea35380d3c0",
+  "object_owner": "christiantukundastocklin@gmail.com",
+  "test": true,
+  "rate": "fb5c66599905499a8eea6732be652edf",
+  "tracking_number": "",
+  "tracking_status": "UNKNOWN",
+  "eta": null,
+  "tracking_url_provider": "",
+  "label_url": "",
+  "commercial_invoice_url": null,
+  "messages": [
+    {
+      "source": "Colissimo",
+      "code": "",
+      "text": "Pickup point ID invalid: prefix is missing or invalid"
+    }
+  ],
+  "order": null,
+  "metadata": "",
+  "parcel": "33f6174ce5fa45498d901fa42e4318df",
+  "billing": {
+    "payments": []
+  },
+  "qr_code_url": null,
+  "created_by": {
+    "first_name": "Christian",
+    "last_name": "TUKUNDA",
+    "username": "christiantukundastocklin@gmail.com"
+  }
+}

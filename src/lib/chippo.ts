@@ -22,11 +22,38 @@ function formatAddress(address: any) {
   };
 }
 
-export async function getRates(from: any, to: any, parcels: any[], options: any = {}) {
+// --- NOUVELLE fonction pour créer une CustomsDeclaration ---
+async function createCustomsDeclaration(customs: any) {
+  console.log('=== createCustomsDeclaration CALLED ===');
+  console.log('Payload customs envoyé à Shippo:', JSON.stringify(customs, null, 2));
+
+  try {
+    const res = await client.post('customs/declarations', customs);
+    console.log('Réponse Customs Shippo:', JSON.stringify(res.data, null, 2));
+    return res.data?.object_id;
+  } catch (err: any) {
+    console.error('Erreur API Customs Shippo:', err.response?.data || err.message);
+    throw err;
+  }
+}
+
+export async function getRates(from: any, to: any, parcels: any[], customs_declaration?: any) {
   console.log('=== getRates CALLED ===');
   console.log('From:', from);
   console.log('To:', to);
   console.log('Parcels:', parcels);
+
+  let customsId: string | undefined;
+
+  // --- Création customs si fourni ---
+  if (customs_declaration) {
+    try {
+      customsId = await createCustomsDeclaration(customs_declaration);
+    } catch (err) {
+      console.error('=== ERROR creating customs_declaration ===');
+      throw err;
+    }
+  }
 
   const payload = {
     address_from: formatAddress(from),
@@ -40,7 +67,8 @@ export async function getRates(from: any, to: any, parcels: any[], options: any 
       mass_unit: p.mass_unit || 'kg',
     })),
     async: false,
-    ...options,
+    // ...options,
+    ...(customsId ? { customs_declaration: customsId } : {}), // ajout customs si existe
   };
 
   console.log('Payload envoyé à Shippo:', JSON.stringify(payload, null, 2));
@@ -54,6 +82,7 @@ export async function getRates(from: any, to: any, parcels: any[], options: any 
       id: rate.object_id,
       carrier: rate.provider,
       service: rate.servicelevel?.name,
+      relayToken: rate.servicelevel?.token,
       img: rate.provider_image_200,
       price: rate.amount,
       currency: rate.currency,

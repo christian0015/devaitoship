@@ -4,8 +4,8 @@ if (typeof window.devaitoInitialized === 'undefined') {
   
   (function(){
     const CONFIG = {
-      API_BASE: "http://localhost:3000/api",
-      // API_BASE: "https://devaitoship.vercel.app/api",
+    //   API_BASE: "http://localhost:3000/api",
+      API_BASE: "https://devaitoship.vercel.app/api",
       DEBUG: true
     };
     
@@ -1398,14 +1398,8 @@ if (typeof window.devaitoInitialized === 'undefined') {
                   this.classList.add('selected');
                   
                   // Stocker la sélection pour ce produit
-                  // selectedRates[productId] = r;
-                  // Dans la fonction qui affiche les taux, assurez-vous de stocker l'object_id
-                  selectedRates[productId] = {
-                    ...r, // Toutes les propriétés du taux
-                    object_id: r.id || r.object_id || r.rateId, // Utiliser object_id si disponible
-                    servicepoint_token: r.relayToken || r.servicepoint_token || null // Pour les points relais
-                  };
-                  console.log("[DEV] Taux sélectionné stocké:", selectedRates[productId]);
+                  selectedRates[productId] = r;
+                  
                   // Calculer le total
                   calculateTotal();
                 });
@@ -1427,7 +1421,6 @@ if (typeof window.devaitoInitialized === 'undefined') {
       };
       
       // Gestionnaire pour le bouton de validation
-      // Gestionnaire pour le bouton de validation - NOUVELLE VERSION
       validateBtn.onclick = async function() {
         if (Object.keys(selectedRates).length === 0) {
           showError("Veuillez sélectionner une option de livraison");
@@ -1435,124 +1428,53 @@ if (typeof window.devaitoInitialized === 'undefined') {
         }
         
         validateBtn.disabled = true;
-        validateBtn.innerHTML = "⏳ Création du label...";
+        validateBtn.innerHTML = "⏳ Traitement...";
         
         try {
-          // Récupérer les informations nécessaires
-          const toAddress = getToAddress();
-          
-          // Pour simplifier, on prend le premier taux sélectionné (vous pouvez adapter pour gérer plusieurs produits)
-          const firstProductId = Object.keys(selectedRates)[0];
-          const selectedRate = selectedRates[firstProductId];
-          
-          // Préparer les données de la commande
+          // Récupérer les informations de la commande
           const orderData = {
-            orderId: `ORDER_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            orderNumber: `#${Date.now().toString().substr(-6)}`,
-            customerName: toAddress.name || "Client",
-            customerEmail: toAddress.email || "",
-            customerPhone: toAddress.phone || "",
-            shippingAddress: toAddress,
-            items: products.map(p => ({
+            shopId: shopId,
+            shopUrl: window.location.origin,
+            customerEmail: getToAddress().email,
+            products: products.map(p => ({
               name: p.name,
               quantity: p.quantity,
-              weight: p.dimensions?.weight || 1.5
-            }))
+              dimensions: p.dimensions
+            })),
+            shippingOptions: selectedRates,
+            totalPrice: calculateTotal(),
+            shippingAddress: getToAddress()
           };
           
-          // Préparer la payload pour l'API create-label
-          const payload = {
-            rateId: selectedRate.object_id || selectedRate.rateId, // Utiliser object_id si disponible
-            relay_token: selectedRate.servicepoint_token || null, // Token de point relais si disponible
-            shopUrl: window.location.origin,
-            orderData: orderData
-          };
-          
-          prodLog.info("Envoi à l'API create-label:", payload);
-          
-          // Appeler l'API create-label
-          const response = await fetch(CONFIG.API_BASE + "/create-label", {
+          prodLog.info("Envoi des données de commande à l'API");
+          const response = await fetch(CONFIG.API_BASE+"/wait-commande-validation-shipping", {
             method: "POST",
             headers: {
               "Content-Type": "application/json"
             },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(orderData)
           });
           
-          if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Erreur API: ${response.status} - ${errorText}`);
-          }
+          if (!response.ok) throw new Error("Erreur lors de l'envoi des données");
           
           const result = await response.json();
-          prodLog.info("Réponse create-label:", result);
+          prodLog.info("Commande enregistrée avec succès", result);
           
-          if (result.success) {
-            // Afficher le succès avec les informations de tracking
-            const successMessage2 = `
-              <div style="text-align: center; padding: 15px;">
-                <div style="font-size: 40px; color: #10b981; margin-bottom: 10px;">✅</div>
-                <h3 style="color: #059669; margin: 10px 0;">Label créé avec succès !</h3>
-                <div style="background: #f0fdf4; padding: 15px; border-radius: 8px; border: 1px solid #bbf7d0; margin: 15px 0;">
-                  <p style="margin: 5px 0;"><strong>📦 Numéro de suivi :</strong> ${result.shipment.trackingNumber}</p>
-                  <p style="margin: 5px 0;"><strong>🚚 Transporteur :</strong> ${result.shipment.carrier}</p>
-                  <p style="margin: 5px 0;"><strong>📄 Statut :</strong> ${result.shipment.status}</p>
-                </div>
-                <div style="display: flex; gap: 10px; justify-content: center; margin-top: 20px;">
-                  <a href="${result.shipment.trackingUrl}" target="_blank" style="display: inline-block; padding: 10px 20px; background: #3b82f6; color: white; text-decoration: none; border-radius: 6px; font-weight: 600;">
-                    🔍 Suivre le colis
-                  </a>
-                  <a href="${result.shipment.labelUrl}" target="_blank" style="display: inline-block; padding: 10px 20px; background: #10b981; color: white; text-decoration: none; border-radius: 6px; font-weight: 600;">
-                    📥 Télécharger le label
-                  </a>
-                </div>
-              </div>
-            `;
-            const successMessage = `✅ Label créé avec succès!<br>
-              Numéro de suivi: <strong>${result.shipment.trackingNumber}</strong><br>
-              Transporteur: ${result.shipment.carrier}<br>
-              <a href="${result.shipment.trackingUrl}" target="_blank" style="color: #00d084; text-decoration: underline;">Suivre le colis</a><br>
-              <a href="${result.shipment.labelUrl}" target="_blank" style="color: #00d084; text-decoration: underline;">Télécharger le label</a>`;
-            
-            errorDiv.innerHTML = successMessage;
-            errorDiv.style.color = "#059669";
-            errorDiv.style.background = "#f0fdf4";
-            errorDiv.style.borderColor = "#bbf7d0";
-            errorDiv.style.display = "block";
-            
-            // Optionnel: Redirection ou actions supplémentaires
-            prodLog.info("Label créé avec ID:", result.shipment.id);
-            
-            // Cacher le bouton de validation
-            validateBtn.style.display = "none";
-            
-            // Ajouter un bouton pour fermer ou continuer
-            const continueBtn = document.createElement("button");
-            continueBtn.textContent = "Continuer les achats";
-            continueBtn.style.cssText = "width: 100%; padding: 12px 20px; border-radius: 8px; border: 1px solid #00d084; background: white; color: #00d084; font-weight: 600; cursor: pointer; margin-top: 16px;";
-            continueBtn.onclick = function() {
-              window.location.href = "/";
-            };
-            
-            const closeBtn = document.createElement("button");
-            closeBtn.textContent = "Fermer";
-            closeBtn.style.cssText = "width: 100%; padding: 12px 20px; border-radius: 8px; border: 1px solid #d1d5db; background: #f9fafb; color: #374151; font-weight: 600; cursor: pointer; margin-top: 8px;";
-            closeBtn.onclick = function() {
-              errorDiv.style.display = "none";
-            };
-            
-            // Ajouter les boutons après le message
-            errorDiv.appendChild(document.createElement("br"));
-            errorDiv.appendChild(continueBtn);
-            errorDiv.appendChild(closeBtn);
-            
-          } else {
-            throw new Error(result.error || "Erreur inconnue lors de la création du label");
-          }
+          // Afficher un message de succès
+          showError("✅ Commande enregistrée avec succès! Vous allez être redirigé.");
+          errorDiv.style.color = "#059669";
+          errorDiv.style.background = "#f0fdf4";
+          errorDiv.style.borderColor = "#bbf7d0";
+          
+          // Redirection ou autre action après succès
+          setTimeout(() => {
+            // Rediriger vers la page de confirmation ou de paiement
+            // window.location.href = "/checkout/confirmation";
+          }, 2000);
           
         } catch (error) {
-          showError(`❌ Erreur lors de la création du label: ${error.message}`);
-          prodLog.error("Erreur create-label", error);
+          showError("❌ Erreur lors de l'enregistrement de la commande");
+          prodLog.error("Erreur validation", error.message);
         } finally {
           validateBtn.disabled = false;
           validateBtn.innerHTML = "✅ Valider la commande";

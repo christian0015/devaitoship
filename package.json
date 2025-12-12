@@ -10,6 +10,7 @@
     "build:widget": "esbuild src/embed.js --bundle --minify --outfile=public/embed.js --loader:.js=jsx"
   },
   "dependencies": {
+    "@easypost/api": "^8.2.0",
     "axios": "^1.11.0",
     "crypto-js": "^4.2.0",
     "dotenv": "^17.2.1",
