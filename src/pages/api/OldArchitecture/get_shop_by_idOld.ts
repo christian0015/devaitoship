@@ -1,7 +1,7 @@
 // src/api/get_shop_by_id/[shopId].ts
 import type { NextApiRequest, NextApiResponse } from 'next';
-import dbConnect from '../../lib/mongo';
-import { findMerchantById } from '../../lib/models/merchantModel';
+import dbConnect from '../../../lib/mongo';
+import { findMerchantById } from '../../../lib/models/merchantModel';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { shopId } = req.query;

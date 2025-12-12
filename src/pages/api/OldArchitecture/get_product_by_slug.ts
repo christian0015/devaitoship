@@ -1,7 +1,7 @@
 // src/api/get_product_by_slug/[slug].ts
 import type { NextApiRequest, NextApiResponse } from 'next';
-import dbConnect from '../../lib/mongo';
-import { findMerchantById } from '../../lib/models/merchantModel';
+import dbConnect from '../../../lib/mongo';
+import { findMerchantById } from '../../../lib/models/merchantModel';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { slug } = req.query;

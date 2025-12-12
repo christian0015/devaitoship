@@ -1,7 +1,7 @@
 // src/api/get_shop_data.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
-import dbConnect from '../../lib/mongo';
-import { findMerchantById } from '../../lib/models/merchantModel';
+import dbConnect from '../../../lib/mongo';
+import { findMerchantById } from '../../../lib/models/merchantModel';
 import { log } from 'console';
 
 interface ProductInfo {
