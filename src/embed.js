@@ -4,8 +4,8 @@ if (typeof window.devaitoInitialized === 'undefined') {
   
   (function(){
     const CONFIG = {
-      API_BASE: "http://localhost:3000/api",
-      // API_BASE: "https://devaitoship.vercel.app/api",
+      // API_BASE: "http://localhost:3000/api",
+      API_BASE: "https://devaitoship.vercel.app/api",
       DEBUG: true
     };
     
