@@ -416,17 +416,44 @@ export class FormComponent {
     
     // Écouteurs pour le widget flottant
     if (this.isFloating) {
+      // Écouter le clic sur l'icône flottante
+      this.elements.floatingIcon.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.expandFloatingWidget();
+      });
+      
+      // Écouter le clic sur la carte du widget (pour les bords)
       this.elements.widgetCard.addEventListener('click', (e) => {
-        if (e.target === this.elements.widgetCard || e.target === this.elements.floatingIcon) {
+        // Ne se déclenche que si on clique directement sur la carte (pas sur les enfants)
+        if (e.target === this.elements.widgetCard) {
           this.expandFloatingWidget();
         }
       });
       
+      // Bouton de fermeture
       this.elements.closeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         this.collapseFloatingWidget();
       });
+      
+      // Empêcher la propagation des clics dans le contenu expansé
+      this.elements.expandedContent.addEventListener('click', (e) => {
+        e.stopPropagation();
+      });
     }
+
+    // if (this.isFloating) {
+    //   this.elements.widgetCard.addEventListener('click', (e) => {
+    //     if (e.target === this.elements.widgetCard || e.target === this.elements.floatingIcon) {
+    //       this.expandFloatingWidget();
+    //     }
+    //   });
+      
+    //   this.elements.closeBtn.addEventListener('click', (e) => {
+    //     e.stopPropagation();
+    //     this.collapseFloatingWidget();
+    //   });
+    // }
     
     // Synchronisation avec le formulaire de la page
     if (!isProductPage() && !isCartOrCheckoutPage()) {
@@ -471,30 +498,93 @@ export class FormComponent {
     this.elements.floatingHeader.style.display = 'flex';
     this.elements.expandedContent.style.display = 'block';
     this.elements.content.style.display = 'block';
+    
+    // Calculer la position pour être centré
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const widgetWidth = Math.min(500, viewportWidth - 40);
+    const widgetHeight = Math.min(600, viewportHeight - 100);
+    
     this.elements.widgetCard.style.cssText = `
       background: white; 
-      width: 90%; 
-      max-width: 500px; 
-      height: auto; 
-      max-height: 80vh; 
+      width: ${widgetWidth}px; 
+      height: ${widgetHeight}px; 
       border-radius: 12px; 
       overflow: hidden; 
       display: flex; 
       flex-direction: column; 
       position: fixed; 
-      top: 150px; 
-      right: 20px; 
-      z-index: 10000; 
-      box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+      top: 50%; 
+      left: 50%; 
+      transform: translate(-50%, -50%);
+      z-index: 10001; 
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
     `;
+    
+    // Ajouter un overlay pour fermer en cliquant à l'extérieur
+    this.createOverlay();
+  }
+  
+  // expandFloatingWidget() {
+  //   this.elements.floatingIcon.style.display = 'none';
+  //   this.elements.floatingHeader.style.display = 'flex';
+  //   this.elements.expandedContent.style.display = 'block';
+  //   this.elements.content.style.display = 'block';
+  //   this.elements.widgetCard.style.cssText = `
+  //     background: white; 
+  //     width: 90%; 
+  //     max-width: 500px; 
+  //     height: auto; 
+  //     max-height: 80vh; 
+  //     border-radius: 12px; 
+  //     overflow: hidden; 
+  //     display: flex; 
+  //     flex-direction: column; 
+  //     position: fixed; 
+  //     top: 150px; 
+  //     right: 20px; 
+  //     z-index: 10000; 
+  //     box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+  //   `;
+  // }
+
+  createOverlay() {
+    // Vérifier si l'overlay existe déjà
+    let overlay = document.getElementById('devaito-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'devaito-overlay';
+      overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 10000;
+        display: block;
+      `;
+      document.body.appendChild(overlay);
+      
+      // Fermer le widget quand on clique sur l'overlay
+      overlay.addEventListener('click', () => {
+        this.collapseFloatingWidget();
+      });
+    } else {
+      overlay.style.display = 'block';
+    }
+    
+    this.elements.overlay = overlay;
   }
 
   collapseFloatingWidget() {
     this.elements.expandedContent.style.display = 'none';
     this.elements.floatingHeader.style.display = 'none';
     this.elements.floatingIcon.style.display = 'flex';
+    
+    // Revenir à la bulle
     this.elements.widgetCard.style.cssText = `
-      background: white; 
+      background: #00d084; 
       width: 60px; 
       height: 60px; 
       border-radius: 50%; 
@@ -508,9 +598,37 @@ export class FormComponent {
       position: fixed;
       bottom: 150px;
       right: 20px;
-      z-index: 10000;
+      z-index: 10001;
     `;
+    
+    // Cacher l'overlay
+    if (this.elements.overlay) {
+      this.elements.overlay.style.display = 'none';
+    }
   }
+
+  // collapseFloatingWidget() {
+  //   this.elements.expandedContent.style.display = 'none';
+  //   this.elements.floatingHeader.style.display = 'none';
+  //   this.elements.floatingIcon.style.display = 'flex';
+  //   this.elements.widgetCard.style.cssText = `
+  //     background: white; 
+  //     width: 60px; 
+  //     height: 60px; 
+  //     border-radius: 50%; 
+  //     display: flex; 
+  //     align-items: center; 
+  //     justify-content: center; 
+  //     font-size: 24px; 
+  //     cursor: pointer; 
+  //     box-shadow: 0 4px 12px rgba(0, 208, 132, 0.3); 
+  //     transition: all 0.3s ease;
+  //     position: fixed;
+  //     bottom: 150px;
+  //     right: 20px;
+  //     z-index: 10000;
+  //   `;
+  // }
 
   updateStoreFromForm() {
     const address = this.getFormAddress();
