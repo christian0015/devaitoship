@@ -7,7 +7,8 @@
     "build": "npm run build:widget && next build",
     "start": "next start",
     "lint": "next lint",
-    "build:widget": "esbuild src/embed.js --bundle --minify --outfile=public/embed.js --loader:.js=jsx"
+    "build:widget1": "esbuild src/embed.js --bundle --minify --outfile=public/embed.js --loader:.js=jsx",
+    "build:widget": "esbuild src/embed-project/main.js --bundle --minify --outfile=public/embed.js --loader:.js=jsx"
   },
   "dependencies": {
     "@easypost/api": "^8.2.0",
