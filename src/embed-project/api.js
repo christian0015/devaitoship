@@ -118,7 +118,13 @@ class ApiService {
       if (!response.ok) throw new Error('Erreur de chargement des pays');
       
       const data = await response.json();
-      return data.data?.countries || [];
+      // CORRECTION : S'assurer que tous les pays ont un code
+      const countries = data.data?.countries || [];
+      return countries.map(country => ({
+        id: country.id,
+        name: country.name,
+        code: country.code || this.mapCountryIdToCode(country.id)
+      }));
     } catch (error) {
       prodLog.error("Erreur chargement pays:", error);
       return [
@@ -161,7 +167,10 @@ class ApiService {
         body: JSON.stringify({ state_id: stateId })
       });
       
-      if (!response.ok) throw new Error('Erreur de chargement des villes');
+      if (!response.ok) {
+        // Si pas de villes disponibles, retourner un tableau vide
+        return [];
+      }
       
       const data = await response.json();
       return data.data?.cities || [];
@@ -169,6 +178,16 @@ class ApiService {
       prodLog.error("Erreur chargement villes:", error);
       return [];
     }
+  }
+
+  // Méthode utilitaire pour mapper les ID de pays aux codes
+  mapCountryIdToCode(countryId) {
+    const countryMap = {
+      '50': 'CD',
+      '75': 'FR',
+      '148': 'MA'
+    };
+    return countryMap[countryId] || 'FR';
   }
 }
 

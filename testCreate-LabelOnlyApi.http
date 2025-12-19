@@ -1,0 +1,152 @@
+### Création d’un label Colissimo - Livraison à domicile
+POST http://localhost:3000/api/create-label
+Content-Type: application/json
+
+{
+  "rateId": "a011e875ea08436fad2e996c46e54148",
+  "relay_token": "colissimo_home",
+  "shopUrl": "https://asusx-shop.com",
+  "orderData": {
+    "orderId": "CMD-2025-001",
+    "orderNumber": "2025-001",
+    "customerName": "Jean Dupont",
+    "customerEmail": "jean.dupont@email.com",
+    "customerPhone": "+33612345678",
+    "shippingAddress": {
+      "name": "Jean Dupont",
+      "street1": "12 rue Lafayette",
+      "city": "Paris",
+      "state": "Île-de-France",
+      "zip": "75009",
+      "country": "FR"
+    },
+    "items": [
+      {
+        "productId": 4,
+        "name": "Laptop Asus",
+        "quantity": 1,
+        "price": 899.99
+      }
+    ]
+  }
+}
+
+
+### Création d’un label Colissimo - Point Relais
+POST http://localhost:3000/api/create-label
+Content-Type: application/json
+
+{
+  "rateId": "cba2f979e5504edbaf42284829440d41",
+  "relay_token": "colissimo_pick_up_point",
+  "shopUrl": "https://asusx-shop.com",
+  "orderData": {
+    "orderId": "CMD-2025-002",
+    "orderNumber": "2025-002",
+    "customerName": "Marie Lefèvre",
+    "customerEmail": "marie.lefevre@email.com",
+    "customerPhone": "+33698765432",
+    "shippingAddress": {
+      "name": "Marie Lefèvre",
+      "street1": "5 avenue Victor Hugo",
+      "city": "Paris",
+      "state": "Île-de-France",
+      "zip": "75116",
+      "country": "FR"
+    },
+    "items": [
+      {
+        "productId": 4,
+        "name": "Laptop Asus",
+        "quantity": 1,
+        "price": 899.99
+      }
+    ]
+  }
+}
+
+
+
+
+
+
+### Création d’un label - Livraison à domicile
+POST https://devaitoship.vercel.app/api/create-label
+Content-Type: application/json
+
+{
+  "rateId": "49e08582d0a34f5fac1d9e665b7b52a5",
+  "relay_token": "chronopost_10",
+  "shopUrl": "https://asusx-shop.com",
+  "orderData": {
+    "orderId": "CMD-2025-001",
+    "orderNumber": "2025-001",
+    "customerName": "Jean Dupont",
+    "customerEmail": "jean.dupont@email.com",
+    "customerPhone": "+33612345678",
+    "shippingAddress": {
+      "name": "Jean Dupont",
+      "street1": "12 rue Lafayette",
+      "city": "Paris",
+      "state": "Île-de-France",
+      "zip": "75009",
+      "country": "FR"
+    },
+    "items": [
+      {
+        "productId": 4,
+        "name": "Laptop Asus",
+        "quantity": 1,
+        "price": 899.99
+      }
+    ]
+  }
+}
+
+
+### Création d’un label - Point Relais
+POST http://localhost:3000/api/create-label
+Content-Type: application/json
+
+{
+  "rateId": "e063e4dfc2114d09bc98fc964b2204a8",
+  "relay_token": "chronopost_relais_fr",
+  "shopUrl": "https://asusx-shop.com",
+  "orderData": {
+    "orderId": "CMD-2025-002",
+    "orderNumber": "2025-002",
+    "customerName": "Marie Lefèvre",
+    "customerEmail": "marie.lefevre@email.com",
+    "customerPhone": "+33698765432",
+    "shippingAddress": {
+      "name": "Marie Lefèvre",
+      "street1": "456 Side St",
+      "city": "Lyon",
+      "state": "Auvergne-Rhône-Alpes",
+      "zip": "69002",
+      "country": "FR"
+    },
+    "items": [
+      {
+        "productId": 4,
+        "name": "Laptop Asus",
+        "quantity": 1,
+        "price": 899.99
+      }
+    ]
+  }
+}
+
+
+### Responce 
+{
+  "success": true,
+  "shipment": {
+    "id": "69452f27e5d8a789f133aff1",
+    "trackingNumber": "XU032297055EE",
+    "trackingUrl": "https://www.chronopost.fr/tracking-no-cms/suivi-page?langue=fr&listeNumerosLT=XU032297055EE",
+    "labelUrl": "https://deliver.goshippo.com/649b3bdcb67d41dd9231be73d601922b.pdf?Expires=1797677735&Signature=...",
+    "carrier": "Unknown",
+    "status": "purchased"
+  }
+}

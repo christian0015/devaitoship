@@ -3,55 +3,81 @@ import { getStore } from './store.js';
 import { eventBus, EVENTS } from './EventBus.js';
 import { getApiService } from './api.js';
 import { prodLog, utils } from './config.js';
+import { getProductInfo } from './utils.js';
 
 export class ProductComponent {
   constructor(container, options = {}) {
     this.container = container;
     this.isFloating = options.isFloating || false;
+    this.shopId = options.shopId;
     this.store = getStore();
     this.api = getApiService();
     
     this.elements = {
       productsSection: null,
-      productsContainer: null
+      productsContainer: null,
+      productsTitle: null
     };
   }
 
-  init() {
+  init(isModal = false) {
+    if (this.isFloating && !isModal) {
+      // En mode flottant, on attend que le modal soit ouvert
+      return;
+    }
+    
     this.render();
-    this.bindEvents();
-    this.loadProducts();
+    
+    if (!isModal) {
+      this.loadProducts();
+      this.bindEvents();
+    }
   }
 
   render() {
+    // Créer la section produits
     this.elements.productsSection = document.createElement("div");
+    this.elements.productsSection.id = "devaito-products-section";
+    this.elements.productsSection.className = "devaito-products-section";
     this.elements.productsSection.style.cssText = "margin-bottom: 20px;";
     
-    const productsTitle = document.createElement("h4");
-    productsTitle.textContent = "Produits";
-    productsTitle.style.cssText = "margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #374151;";
+    this.elements.productsTitle = document.createElement("h4");
+    this.elements.productsTitle.textContent = "Produits";
+    this.elements.productsTitle.style.cssText = "margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #374151;";
     
     this.elements.productsContainer = document.createElement("div");
-    this.elements.productsContainer.id = "devaito-products";
-    this.elements.productsContainer.style.cssText = "margin-bottom: 20px;";
+    this.elements.productsContainer.id = "devaito-products-container";
+    this.elements.productsContainer.style.cssText = "margin-bottom: 20px; min-height: 80px;";
     
-    this.elements.productsSection.appendChild(productsTitle);
+    this.elements.productsSection.appendChild(this.elements.productsTitle);
     this.elements.productsSection.appendChild(this.elements.productsContainer);
     
-    // Trouver le contenu pour ajouter la section
-    const content = document.getElementById("devaito-content") || 
-                   this.container.querySelector(".devaito-floating-content");
-    if (content) {
-      content.appendChild(this.elements.productsSection);
+    // Ajouter au conteneur approprié
+    if (this.isFloating) {
+      // Pour le widget flottant, stocker la section pour l'ajouter au modal plus tard
+      this.container.productsSection = this.elements.productsSection;
+    } else {
+      // Pour le widget intégré, ajouter directement après la section adresse
+      const content = document.getElementById("devaito-content");
+      if (content) {
+        content.appendChild(this.elements.productsSection);
+      } else {
+        console.error("Contenu non trouvé pour ajouter la section produits");
+      }
     }
   }
 
   async loadProducts() {
     try {
-      const productInfo = this.getProductInfo();
-      const storeState = this.store.state;
+      const productInfo = getProductInfo();
       
-      const data = await this.api.fetchShopData(storeState.shopId, productInfo);
+      if (productInfo.length === 0) {
+        this.showNoProducts();
+        return;
+      }
+      
+      const storeState = this.store.state;
+      const data = await this.api.fetchShopData(this.shopId, productInfo);
       
       const products = data.products.map((p, index) => {
         const fromAddress = p.shippingAddress || data.shop.address || {
@@ -71,16 +97,18 @@ export class ProductComponent {
           id: index,
           name: productName,
           quantity: productInfo[index] ? productInfo[index].quantity : 1,
-          dimensions: p.dimensions,
+          dimensions: p.dimensions || { length: 20, width: 15, height: 10, weight: 1.5 },
           fromAddress: fromAddress 
         };
       });
       
       this.store.setState({ products });
       this.renderProducts(products);
+      eventBus.emit(EVENTS.PRODUCTS_CHANGE, { products });
       
     } catch (error) {
       prodLog.error("Erreur chargement produits:", error);
+      this.showError("Erreur de chargement des produits");
       eventBus.emit(EVENTS.ERROR, { 
         action: 'loadProducts', 
         error: error.message 
@@ -88,99 +116,123 @@ export class ProductComponent {
     }
   }
 
-  getProductInfo() {
-    const path = window.location.pathname.toLowerCase();
-    let products = [];
-
-    if (utils.isCartOrCheckoutPage()) {
-      // Récupérer depuis localStorage
-      let cartItems = JSON.parse(localStorage.getItem('cartItems') || localStorage.getItem('checkoutItemsValide') || '[]');
-      
-      if (cartItems.length > 0) {
-        products = cartItems.map(item => ({
-          id: item.id,
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price
-        }));
-      } else {
-        // Fallback DOM
-        document.querySelectorAll('.cart-item, .product-item, .order-item').forEach(item => {
-          const nameElement = item.querySelector('.product-name, .item-name');
-          const quantityInput = item.querySelector('input[type="number"]');
-          const id = item.getAttribute('data-product-id') || item.getAttribute('data-id');
-          
-          if (nameElement) {
-            products.push({
-              id: id,
-              name: nameElement.textContent.trim(),
-              quantity: quantityInput ? parseInt(quantityInput.value) || 1 : 1
-            });
-          }
-        });
-      }
-    } else if (utils.isProductPage()) {
-      const slug = path.split("/product/")[1]?.split("/")[0] || 
-                   path.split("/products/")[1]?.split("/")[0];
-      if (slug) {
-        const productNameElement = document.querySelector('h1.product-title, h1.product-name');
-        const quantityInput = document.querySelector('input[type="number"].quantity-input');
-        
-        products.push({
-          slug: slug,
-          name: productNameElement ? productNameElement.textContent.trim() : 'Produit',
-          quantity: quantityInput ? parseInt(quantityInput.value) || 1 : 1
-        });
-      }
-    }
-    
-    if (products.length === 0) {
-      products = [{name: "Product Demo", quantity: 1}];
-    }
-    
-    return products;
-  }
-
   renderProducts(products) {
+    if (!this.elements.productsContainer) return;
+    
     this.elements.productsContainer.innerHTML = "";
     
     if (products.length === 0) {
-      this.elements.productsContainer.innerHTML = "<p style='color:#9ca3af; text-align:center; padding:12px;'>Aucun produit disponible";
+      this.showNoProducts();
       return;
     }
     
     products.forEach(p => {
-      const productCard = document.createElement("div");
-      productCard.className = "devaito-product-item";
-      
-      const productInfoDiv = document.createElement("div");
-      productInfoDiv.className = "devaito-product-info";
-      
-      const productName = document.createElement("div");
-      productName.className = "devaito-product-name";
-      productName.textContent = p.name;
-      
-      const productDetails = document.createElement("div");
-      productDetails.className = "devaito-product-details";
-      productDetails.textContent = `${p.dimensions.length}×${p.dimensions.width}×${p.dimensions.height}cm, ${p.quantity} unité(s)`;
-      
-      productInfoDiv.appendChild(productName);
-      productInfoDiv.appendChild(productDetails);
-      
-      const quantityDisplay = document.createElement("div");
-      quantityDisplay.className = "devaito-product-quantity";
-      quantityDisplay.textContent = p.quantity;
-      quantityDisplay.readOnly = true;
-      
-      productCard.appendChild(productInfoDiv);
-      productCard.appendChild(quantityDisplay);
+      const productCard = this.createProductCard(p);
       this.elements.productsContainer.appendChild(productCard);
     });
+    
+    // Mettre à jour le titre avec le nombre de produits
+    this.elements.productsTitle.textContent = `Produits (${products.length})`;
+  }
+
+  createProductCard(product) {
+    const productCard = document.createElement("div");
+    productCard.className = "devaito-product-item";
+    productCard.style.cssText = `
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      margin-bottom: 8px;
+    `;
+    
+    const productInfoDiv = document.createElement("div");
+    productInfoDiv.className = "devaito-product-info";
+    productInfoDiv.style.cssText = "flex-grow: 1; margin-right: 12px;";
+    
+    const productName = document.createElement("div");
+    productName.className = "devaito-product-name";
+    productName.textContent = product.name || "Produit sans nom";
+    productName.style.cssText = "font-weight: 500; color: #374151; font-size: 14px;";
+    
+    const productDetails = document.createElement("div");
+    productDetails.className = "devaito-product-details";
+    
+    if (product.dimensions) {
+      productDetails.textContent = `${product.dimensions.length}×${product.dimensions.width}×${product.dimensions.height}cm, ${product.quantity} unité(s)`;
+    } else {
+      productDetails.textContent = `${product.quantity} unité(s)`;
+    }
+    
+    productDetails.style.cssText = "font-size: 12px; color: #6b7280; margin-top: 2px;";
+    
+    productInfoDiv.appendChild(productName);
+    productInfoDiv.appendChild(productDetails);
+    
+    const quantityDisplay = document.createElement("div");
+    quantityDisplay.className = "devaito-product-quantity";
+    quantityDisplay.textContent = product.quantity;
+    quantityDisplay.style.cssText = `
+      width: 60px;
+      padding: 8px;
+      border: 1.5px solid #d1d5db;
+      color: #1f2937;
+      border-radius: 6px;
+      text-align: center;
+      font-size: 14px;
+      background: #f9fafb;
+    `;
+    quantityDisplay.readOnly = true;
+    
+    productCard.appendChild(productInfoDiv);
+    productCard.appendChild(quantityDisplay);
+    
+    return productCard;
+  }
+
+  showNoProducts() {
+    if (!this.elements.productsContainer) return;
+    
+    this.elements.productsContainer.innerHTML = `
+      <div style="text-align: center; padding: 20px; color: #6b7280; background: #f9fafb; border-radius: 8px; border: 1px dashed #d1d5db;">
+        <div style="font-size: 24px; margin-bottom: 8px;">📦</div>
+        <div>Aucun produit détecté</div>
+        <div style="font-size: 12px; margin-top: 4px;">Ajoutez des produits à votre panier</div>
+      </div>
+    `;
+  }
+
+  showError(message) {
+    if (!this.elements.productsContainer) return;
+    
+    this.elements.productsContainer.innerHTML = `
+      <div style="text-align: center; padding: 15px; color: #dc2626; background: #fef2f2; border-radius: 8px; border: 1px solid #fecaca;">
+        <div style="font-size: 20px; margin-bottom: 8px;">⚠️</div>
+        <div>${message}</div>
+      </div>
+    `;
+  }
+
+  bindEvents() {
+    eventBus.on(EVENTS.ADDRESS_CHANGE, () => {
+      // Potentiellement recharger les produits si l'adresse affecte la disponibilité
+    });
+  }
+
+  getProductsForShipping() {
+    return this.store.getProducts();
   }
 
   prepareShippingRequests() {
     const products = this.store.getProducts();
     const toAddress = this.store.getClientAddress();
+    
+    if (products.length === 0 || !toAddress || !toAddress.country) {
+      return [];
+    }
     
     const groups = {};
     products.forEach(prod => {
@@ -195,9 +247,9 @@ export class ProductComponent {
         length: adjustedDimensions.length,
         width: adjustedDimensions.width,
         height: adjustedDimensions.height,
-        distance_unit: adjustedDimensions.distance_unit,
+        distance_unit: adjustedDimensions.distance_unit || 'cm',
         weight: adjustedDimensions.weight,
-        mass_unit: adjustedDimensions.mass_unit
+        mass_unit: adjustedDimensions.mass_unit || 'kg'
       });
     });
     
@@ -206,12 +258,5 @@ export class ProductComponent {
       to: toAddress,
       parcels: groups[k].parcels
     }));
-  }
-
-  bindEvents() {
-    // Écouter les changements d'adresse pour recalculer si nécessaire
-    eventBus.on(EVENTS.ADDRESS_CHANGE, () => {
-      // Potentiellement rafraîchir les produits si l'adresse change
-    });
   }
 }

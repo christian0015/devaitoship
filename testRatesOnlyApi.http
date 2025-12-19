@@ -1,0 +1,120 @@
+
+### GetRAtes
+POST https://devaitoship.vercel.app/api/get_shipping_rates HTTP/1.1
+content-type: application/json
+
+{
+  "shopId": "68c94bda80a0b01b112de19e",
+  "toAddress": {
+    "name": "Marie Martin",
+    "street1": "22 Avenue des Champs-Élysées",
+    "city": "Paris",
+    "state": "Île-de-France",
+    "zip": "75008",
+    "country": "FR"
+  },
+  "products": [
+    {
+      "productId": 2,
+      "quantity": 1
+    },
+    {
+      "productId": 5,
+      "quantity": 3
+    }
+  ]
+}
+
+### GetRates
+POST https://devaitoship.vercel.app/api/get_shipping_rates HTTP/1.1
+content-type: application/json
+
+{
+  "shopId": "68c94bda80a0b01b112de19e",
+  "toAddress": {
+    "name": "Marie Martin",
+    "street1": "22 Avenue des Champs-Élysées",
+    "city": "Paris",
+    "state": "Île-de-France",
+    "zip": "75008",
+    "country": "FR"
+  },
+  "products": [
+    {
+      "productId": 4
+    }
+  ]
+}
+
+
+
+
+### Responce for GetRates
+{
+  "shop": {
+    "id": "68c94bda80a0b01b112de19e",
+    "name": "Asusx",
+    "address": {
+      "name": "Tuk's",
+      "street1": "123 Main St",
+      "city": "Paris",
+      "state": "Île-de-France",
+      "zip": "75001",
+      "country": "FR"
+    }
+  },
+  "products": [
+    {
+      "productId": 2,
+      "quantity": 1,
+      "rates": [
+        {
+          "id": "2a200462b02f486db970f1aa1f4298fe",
+          "carrier": "Colissimo",
+          "service": "Point Retrait",
+          "relayToken": "colissimo_pick_up_point",
+          "img": "https://shippo-static.s3.amazonaws.com/providers/200/colissimo.png",
+          "price": "9.69",
+          "currency": "EUR",
+          "estimated_days": null
+        },
+        {
+          "id": "b2847da411cd4af08e3017e1c0a4b1cb",
+          "carrier": "Colissimo",
+          "service": "Domicile",
+          "relayToken": "colissimo_home",
+          "img": "https://shippo-static.s3.amazonaws.com/providers/200/colissimo.png",
+          "price": "11.48",
+          "currency": "EUR",
+          "estimated_days": null
+        }
+      ]
+    },
+    {
+      "productId": 5,
+      "quantity": 3,
+      "rates": [
+        {
+          "id": "35b4ef7d7de4433fb10c8e840d99da88",
+          "carrier": "Colissimo",
+          "service": "Domicile",
+          "relayToken": "colissimo_home",
+          "img": "https://shippo-static.s3.amazonaws.com/providers/200/colissimo.png",
+          "price": "13.74",
+          "currency": "EUR",
+          "estimated_days": null
+        },
+        {
+          "id": "d6c09930a21045a488ecf99d9f7f0095",
+          "carrier": "Colissimo",
+          "service": "Point Retrait",
+          "relayToken": "colissimo_pick_up_point",
+          "img": "https://shippo-static.s3.amazonaws.com/providers/200/colissimo.png",
+          "price": "11.94",
+          "currency": "EUR",
+          "estimated_days": null
+        }
+      ]
+    }
+  ]
+}

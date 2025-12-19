@@ -85,10 +85,11 @@ class Store {
     this.subscribers.forEach(callback => callback(oldState, newState));
   }
 
-  // Méthodes utilitaires
+  // Méthodes utilitaires - MODIFIÉ : Plus souple comme dans l'original
   isFormValid() {
     const addr = this.state.clientAddress;
-    return addr.street1 && addr.city && addr.zip && addr.email && addr.country;
+    // Comme dans embed.js original : vérifie seulement les champs essentiels
+    return addr.street1 && addr.zip && addr.email && addr.country;
   }
 
   getTotalPrice() {

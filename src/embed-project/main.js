@@ -7,38 +7,34 @@ import { ShippingComponent } from './ShippingComponent.js';
 import { initStore } from './store.js';
 import { loadStyles } from './style.js';
 
-// Vérifier si le widget a déjà été initialisé
 if (typeof window.devaitoInitialized === 'undefined') {
   window.devaitoInitialized = true;
   
   (function(){
     prodLog.info("Initialisation du widget modulaire");
 
-    // Si on est dans le builder, on ne charge pas le widget
     if (isInBuilder()) {
       prodLog.info("Mode Builder détecté : script du widget non exécuté.");
       return;
     }
 
-    // Vérifier si on est sur une page avec slug
     if (!isSlugPage()) {
       prodLog.info("Pas sur une page avec slug, widget non initialisé");
       return;
     }
 
-    // Charger les styles
     loadStyles();
 
     function initWidget() {
       let container = document.getElementById("devaito-widget");
       let shopId = container ? container.getAttribute("data-shop-id") : null;
       
-      // Si pas de container, créer un widget flottant
       let isFloating = false;
+      let floatingContainer = null;
+      
       if (!container) {
         prodLog.info("Aucun conteneur trouvé, création d'un widget flottant");
         
-        // Vérifier si on a un shopId dans une variable globale
         if (typeof window.DEVAITO_SHOP_ID !== 'undefined') {
           shopId = window.DEVAITO_SHOP_ID;
           prodLog.info(`ShopID récupéré depuis window.DEVAITO_SHOP_ID: ${shopId}`);
@@ -47,11 +43,18 @@ if (typeof window.devaitoInitialized === 'undefined') {
           return;
         }
         
-        // Créer le widget flottant
+        // Créer le conteneur flottant (juste l'icône)
+        floatingContainer = document.createElement('div');
+        floatingContainer.id = "devaito-widget-floating";
+        floatingContainer.style.cssText = "position: fixed; bottom: 150px; right: 20px; z-index: 10000;";
+        document.body.appendChild(floatingContainer);
+        
+        // Créer le conteneur du modal (caché initialement)
         container = document.createElement('div');
-        container.id = "devaito-widget-floating";
-        container.style.cssText = "position: fixed; bottom: 150px; right: 20px; z-index: 10000;";
+        container.id = "devaito-modal-container";
+        container.style.cssText = "display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 10001;";
         document.body.appendChild(container);
+        
         isFloating = true;
       }
       
@@ -60,7 +63,7 @@ if (typeof window.devaitoInitialized === 'undefined') {
         return;
       }
 
-      if (container.querySelector("#devaito-toggle")) {
+      if (document.getElementById("devaito-toggle")) {
         prodLog.info("Widget déjà initialisé");
         return;
       }
@@ -70,7 +73,7 @@ if (typeof window.devaitoInitialized === 'undefined') {
         return;
       }
 
-      // Initialiser le store global
+      // Initialiser le store
       initStore({ 
         shopId, 
         isFloating,
@@ -93,32 +96,50 @@ if (typeof window.devaitoInitialized === 'undefined') {
         shipmentData: null
       });
 
-      // Initialiser les composants
-      const formComponent = new FormComponent(container, { 
-        isFloating, 
-        shopId 
-      });
-      
-      const productComponent = new ProductComponent(container, { 
-        isFloating,
-        shopId
-      });
-      
-      const shippingComponent = new ShippingComponent(container, { 
-        isFloating 
-      });
+      // Créer et initialiser les composants
+      const components = {
+        form: new FormComponent(isFloating ? floatingContainer : container, { 
+          isFloating, 
+          shopId 
+        }), 
+        product: new ProductComponent(container, { 
+          isFloating,
+          shopId
+        }),
+        shipping: new ShippingComponent(container, { 
+          isFloating 
+        })
+      };
 
-      formComponent.init();
-      productComponent.init();
-      shippingComponent.init();
+      // Initialiser dans l'ordre
+      components.form.init();
+      
+      // En mode flottant, stocker les références pour le modal
+      if (isFloating) {
+        window.devaitoModalComponents = {
+          product: components.product,
+          shipping: components.shipping,
+          modalContainer: container,
+          form: components.form
+        };
+        
+        // Initialiser les autres composants mais ne pas les charger tout de suite
+        components.product.init(true); // true = mode modal
+        components.shipping.init(); // Shipping s'initialise normalement
+      } else {
+        // Mode intégré : initialiser normalement
+        components.product.init();
+        components.shipping.init();
+      }
 
       // Stocker les instances
       window.devaitoWidget = {
-        formComponent,
-        productComponent,
-        shippingComponent,
-        store: window.__DEVAITO_STORE__
+        ...components,
+        store: window.__DEVAITO_STORE__,
+        isFloating
       };
+      
+      prodLog.info("Widget complètement initialisé");
     }
 
     if(document.readyState === "loading"){

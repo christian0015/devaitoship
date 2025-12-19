@@ -114,6 +114,20 @@ const merchantSchema = new Schema<IMerchant>(
   { collection: 'devaitoMerchants' }
 );
 
+// NOUVELLE MÉTHODE: Récupérer la clé API Shippo du client
+merchantSchema.methods.getShippoApiKey = function(): string | null {
+  try {
+    // Vérifier si la clé existe et a plus de 5 caractères
+    if (this.apiKey && this.apiKey.trim().length > 5) {
+      return this.apiKey.trim();
+    }
+    return null;
+  } catch (error) {
+    console.error('Erreur récupération Shippo API Key:', error);
+    return null;
+  }
+};
+
 merchantSchema.methods.decryptToken = function() {
   const decrypt = require('../crypto').decrypt;
   return decrypt(this.apiToken);

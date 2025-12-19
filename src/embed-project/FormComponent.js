@@ -76,7 +76,9 @@ export class FormComponent {
       `;
       
       this.elements.floatingIcon = document.createElement("div");
-      this.elements.floatingIcon.innerHTML = "📦";
+      this.elements.floatingIcon.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-package-open-icon lucide-package-open"><path d="M12 22v-9"/><path d="M15.17 2.21a1.67 1.67 0 0 1 1.63 0L21 4.57a1.93 1.93 0 0 1 0 3.36L8.82 14.79a1.655 1.655 0 0 1-1.64 0L3 12.43a1.93 1.93 0 0 1 0-3.36z"/><path d="M20 13v3.87a2.06 2.06 0 0 1-1.11 1.83l-6 3.08a1.93 1.93 0 0 1-1.78 0l-6-3.08A2.06 2.06 0 0 1 4 16.87V13"/><path d="M21 12.43a1.93 1.93 0 0 0 0-3.36L8.83 2.2a1.64 1.64 0 0 0-1.63 0L3 4.57a1.93 1.93 0 0 0 0 3.36l12.18 6.86a1.636 1.636 0 0 0 1.63 0z"/></svg>
+      `;
       this.elements.floatingIcon.style.cssText = `
         display: flex; 
         align-items: center; 
@@ -135,7 +137,9 @@ export class FormComponent {
     toggleText.style.cssText = "display: flex; align-items: center; gap: 12px;";
     
     const icon = document.createElement("div");
-    icon.innerHTML = "📦";
+    icon.innerHTML = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-package-open-icon lucide-package-open"><path d="M12 22v-9"/><path d="M15.17 2.21a1.67 1.67 0 0 1 1.63 0L21 4.57a1.93 1.93 0 0 1 0 3.36L8.82 14.79a1.655 1.655 0 0 1-1.64 0L3 12.43a1.93 1.93 0 0 1 0-3.36z"/><path d="M20 13v3.87a2.06 2.06 0 0 1-1.11 1.83l-6 3.08a1.93 1.93 0 0 1-1.78 0l-6-3.08A2.06 2.06 0 0 1 4 16.87V13"/><path d="M21 12.43a1.93 1.93 0 0 0 0-3.36L8.83 2.2a1.64 1.64 0 0 0-1.63 0L3 4.57a1.93 1.93 0 0 0 0 3.36l12.18 6.86a1.636 1.636 0 0 0 1.63 0z"/></svg>
+    `;
     icon.style.cssText = "font-size: 20px;";
     
     const textContent = document.createElement("div");
@@ -345,9 +349,14 @@ export class FormComponent {
   bindEvents() {
     this.elements.selects.country.addEventListener('change', async (e) => {
       const countryId = e.target.value;
+      const countryOption = e.target.options[e.target.selectedIndex];
+      const countryCode = countryOption.dataset.code || 'FR';
+      
+      // Mettre à jour l'adresse immédiatement avec le code pays
+      this.updateStoreFromForm();
+      
       await this.loadStates(countryId);
       this.elements.selects.city.innerHTML = '<option value="">Sélectionnez d\'abord une région</option>';
-      this.updateStoreFromForm();
     });
     
     this.elements.selects.state.addEventListener('change', async (e) => {
@@ -404,22 +413,35 @@ export class FormComponent {
       });
     } catch (error) {
       prodLog.error("Erreur chargement régions:", error);
+      // Si pas de régions, on vide la ville et on valide
+      this.elements.selects.state.innerHTML = '<option value="">Pas de régions disponibles</option>';
+      this.elements.selects.city.innerHTML = '<option value="">Pas de villes disponibles</option>';
     }
   }
 
   async loadCities(stateId) {
     try {
+      if (!stateId || stateId === "") {
+        this.elements.selects.city.innerHTML = '<option value="">Pas de villes disponibles</option>';
+        return;
+      }
+      
       const cities = await this.api.loadCities(stateId);
       this.elements.selects.city.innerHTML = '<option value="">Sélectionnez une ville</option>';
       
-      cities.forEach(city => {
-        const option = document.createElement('option');
-        option.value = city.id;
-        option.textContent = city.name;
-        this.elements.selects.city.appendChild(option);
-      });
+      if (cities.length === 0) {
+        this.elements.selects.city.innerHTML = '<option value="">Pas de villes disponibles</option>';
+      } else {
+        cities.forEach(city => {
+          const option = document.createElement('option');
+          option.value = city.id;
+          option.textContent = city.name;
+          this.elements.selects.city.appendChild(option);
+        });
+      }
     } catch (error) {
       prodLog.error("Erreur chargement villes:", error);
+      this.elements.selects.city.innerHTML = '<option value="">Pas de villes disponibles</option>';
     }
   }
 
@@ -488,6 +510,23 @@ export class FormComponent {
     `;
     
     modalContent.appendChild(this.elements.modalAddressSection);
+
+    // AJOUTER LES SECTIONS PRODUITS ET SHIPPING SI ELLES EXISTENT
+    if (window.devaitoModalComponents) {
+      const { product, shipping } = window.devaitoModalComponents;
+      
+      // Ajouter la section produits
+      if (product && product.elements.productsSection) {
+        modalContent.appendChild(product.elements.productsSection);
+        // Charger les produits maintenant que le modal est ouvert
+        product.loadProducts();
+      }
+      
+      // Ajouter la section shipping
+      if (shipping && shipping.elements.shippingSection) {
+        modalContent.appendChild(shipping.elements.shippingSection);
+      }
+    }
     
     this.elements.modal.appendChild(floatingHeader);
     this.elements.modal.appendChild(modalContent);
@@ -495,6 +534,27 @@ export class FormComponent {
     document.body.appendChild(this.elements.modal);
     
     this.createOverlay();
+  }
+
+  createOverlay() {
+    this.elements.overlay = document.createElement('div');
+    this.elements.overlay.id = 'devaito-overlay';
+    this.elements.overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 10001;
+      display: block;
+    `;
+    
+    document.body.appendChild(this.elements.overlay);
+    
+    this.elements.overlay.addEventListener('click', () => {
+      this.collapseFloatingWidget();
+    });
   }
 
   createModalContent() {
@@ -603,6 +663,9 @@ export class FormComponent {
       
       countrySelect.addEventListener('change', async (e) => {
         const countryId = e.target.value;
+        const countryOption = e.target.options[e.target.selectedIndex];
+        const countryCode = countryOption.dataset.code || 'FR';
+        
         await this.loadStatesForModal(countryId, stateSelect);
         citySelect.innerHTML = '<option value="">Sélectionnez d\'abord une région</option>';
         this.updateStoreFromForm();
@@ -632,6 +695,11 @@ export class FormComponent {
       const states = await this.api.loadStates(countryId);
       stateSelect.innerHTML = '<option value="">Sélectionnez une région</option>';
       
+      if (states.length === 0) {
+        stateSelect.innerHTML = '<option value="">Pas de régions disponibles</option>';
+        return;
+      }
+      
       states.forEach(state => {
         const option = document.createElement('option');
         option.value = state.id;
@@ -643,47 +711,37 @@ export class FormComponent {
       });
     } catch (error) {
       prodLog.error("Erreur chargement régions modal:", error);
+      stateSelect.innerHTML = '<option value="">Pas de régions disponibles</option>';
     }
   }
 
   async loadCitiesForModal(stateId, citySelect) {
     try {
+      if (!stateId || stateId === "") {
+        citySelect.innerHTML = '<option value="">Pas de villes disponibles</option>';
+        return;
+      }
+      
       const cities = await this.api.loadCities(stateId);
       citySelect.innerHTML = '<option value="">Sélectionnez une ville</option>';
       
-      cities.forEach(city => {
-        const option = document.createElement('option');
-        option.value = city.id;
-        option.textContent = city.name;
-        if (this.elements.selects.city.value === city.id) {
-          option.selected = true;
-        }
-        citySelect.appendChild(option);
-      });
+      if (cities.length === 0) {
+        citySelect.innerHTML = '<option value="">Pas de villes disponibles</option>';
+      } else {
+        cities.forEach(city => {
+          const option = document.createElement('option');
+          option.value = city.id;
+          option.textContent = city.name;
+          if (this.elements.selects.city.value === city.id) {
+            option.selected = true;
+          }
+          citySelect.appendChild(option);
+        });
+      }
     } catch (error) {
       prodLog.error("Erreur chargement villes modal:", error);
+      citySelect.innerHTML = '<option value="">Pas de villes disponibles</option>';
     }
-  }
-
-  createOverlay() {
-    this.elements.overlay = document.createElement('div');
-    this.elements.overlay.id = 'devaito-overlay';
-    this.elements.overlay.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.5);
-      z-index: 10001;
-      display: block;
-    `;
-    
-    document.body.appendChild(this.elements.overlay);
-    
-    this.elements.overlay.addEventListener('click', () => {
-      this.collapseFloatingWidget();
-    });
   }
 
   collapseFloatingWidget() {
@@ -712,24 +770,60 @@ export class FormComponent {
   }
 
   getFormAddress() {
-    const countryOption = this.elements.selects.country.options[this.elements.selects.country.selectedIndex];
-    const stateOption = this.elements.selects.state.options[this.elements.selects.state.selectedIndex];
-    const cityOption = this.elements.selects.city.options[this.elements.selects.city.selectedIndex];
-    
+    // CORRECTED: Safely get the SELECTED option elements
+    const countrySelect = this.elements.selects.country;
+    const stateSelect = this.elements.selects.state;
+    const citySelect = this.elements.selects.city;
+
+    const selectedCountryOption = countrySelect.options[countrySelect.selectedIndex];
+    const selectedStateOption = stateSelect.options[stateSelect.selectedIndex];
+    const selectedCityOption = citySelect.options[citySelect.selectedIndex];
+
+    // Get DISPLAY TEXT from the selected option, fallback to empty string
+    const countryName = selectedCountryOption ? selectedCountryOption.text : '';
+    const stateName = selectedStateOption ? selectedStateOption.text : '';
+    const cityName = selectedCityOption ? selectedCityOption.text : '';
+
+    // CORRECTED: Get the country CODE from the data-code attribute.
+    // This is the critical fix. The original embed.js used option.dataset.code.
+    // Default to 'FR' only if no country is selected at all.
+    const countryCode = selectedCountryOption ? (selectedCountryOption.dataset.code || 'FR') : 'FR';
+
     return {
       name: this.elements.inputs.name?.value || "",
       street1: this.elements.inputs.street?.value || "",
-      city: cityOption ? cityOption.text : "",
-      state: stateOption ? stateOption.text : "",
+      city: cityName,
+      state: stateName,
       zip: this.elements.inputs.zip?.value || "",
       phone: this.elements.inputs.phone?.value || "",
       email: this.elements.inputs.email?.value || "",
-      country: countryOption ? countryOption.dataset.code : 'FR'
+      country: countryCode // This should now be "MA" for Morocco, not "FR"
     };
   }
+  // getFormAddress() {
+  //   const countryOption = this.elements.selects.country.options[this.elements.selects.country.selectedIndex];
+  //   const stateOption = this.elements.selects.state.options[this.elements.selects.state.selectedIndex];
+  //   const cityOption = this.elements.selects.city.options[this.elements.selects.city.selectedIndex];
+    
+  //   // CORRECTION : Utiliser le code pays depuis data-code, avec fallback
+  //   const countryCode = countryOption ? (countryOption.dataset.code || 'FR') : 'FR';
+    
+  //   return {
+  //     name: this.elements.inputs.name?.value || "",
+  //     street1: this.elements.inputs.street?.value || "",
+  //     city: cityOption ? cityOption.text : "",
+  //     state: stateOption ? stateOption.text : "",
+  //     zip: this.elements.inputs.zip?.value || "",
+  //     phone: this.elements.inputs.phone?.value || "",
+  //     email: this.elements.inputs.email?.value || "",
+  //     country: countryCode // CORRIGÉ : Toujours un code pays valide
+  //   };
+  // }
 
+  // MODIFIÉ : Validation comme dans embed.js original
   isFormValid(address) {
-    return address.street1 && address.city && address.zip && 
+    // Comme dans l'original : seulement les champs essentiels
+    return address.street1 && address.zip && 
            address.email && address.country && utils.isValidEmail(address.email);
   }
 
