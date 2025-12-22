@@ -2,60 +2,114 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import dbConnect from '../../lib/mongo';
 import { ShipmentModel } from '@/lib/models/shipmentModel';
-import { log } from 'console';
+import { findMerchantByShop } from '../../lib/models/merchantModel';
+import { getApiKeyToUse } from '../../lib/chippo';
 
-import fs from 'fs';
-import path from 'path';
-
-/**
- * Handler API pour créer un label d'expédition via Shippo
- * Utilise le Page Router de Next.js (pages/api)
- */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // --- CORS ---
-  res.setHeader("Access-Control-Allow-Origin", "*"); // pour test, autorise tout
+  res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
-  // --- Gérer le preflight OPTIONS ---
   if (req.method === "OPTIONS") {
     return res.status(200).end();
   }
 
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Méthode non autorisée' });
+    return res.status(405).json({ 
+      success: false,
+      error: 'Méthode non autorisée',
+      code: 'METHOD_NOT_ALLOWED'
+    });
   }
 
   try {
-    const { rateId, relay_token=null, shopUrl, orderData } = req.body;
+    const { rateId, relay_token = null, shopUrl, orderData } = req.body;
 
-    // Validation
-    if (!rateId || !shopUrl || !orderData) {
+    // Validation améliorée
+    if (!rateId || typeof rateId !== 'string' || rateId.length < 10) {
       return res.status(400).json({
-        error: 'rateId, shopUrl et orderData sont requis'
+        success: false,
+        error: 'rateId invalide ou manquant',
+        code: 'INVALID_RATE_ID'
       });
     }
-    console.log("Element recu: ", rateId, relay_token, shopUrl, orderData);
 
+    if (!shopUrl || typeof shopUrl !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'shopUrl invalide ou manquant',
+        code: 'INVALID_SHOP_URL'
+      });
+    }
+
+    if (!orderData || !orderData.orderId) {
+      return res.status(400).json({
+        success: false,
+        error: 'orderData invalide ou orderId manquant',
+        code: 'INVALID_ORDER_DATA'
+      });
+    }
+
+    console.log("🛒 Création label pour:", {
+      rateId: rateId.substring(0, 20) + '...',
+      relay_token: relay_token ? 'oui' : 'non',
+      shopUrl,
+      orderId: orderData.orderId,
+      customerName: orderData.customerName
+    });
+
+    // Connexion DB
     try {
       await dbConnect();
+      console.log("✅ Connecté à MongoDB");
     } catch (e: any) {
       console.error("❌ Erreur de connexion à la base de données :", e?.message || e);
-      throw new Error("Impossible d’établir une connexion à la base de données MongoDB.");
-    }    
+      return res.status(500).json({
+        success: false,
+        error: "Impossible d'établir une connexion à la base de données MongoDB",
+        code: 'DB_CONNECTION_ERROR'
+      });
+    }
+
+    // CORRIGÉ: Utiliser findMerchantByShop au lieu de findMerchantById
+    const merchant = await findMerchantByShop(shopUrl);
+    
+    if (!merchant) {
+      console.error(`❌ Marchand non trouvé pour shopUrl: ${shopUrl}`);
+      return res.status(404).json({
+        success: false,
+        error: 'Marchand non trouvé',
+        code: 'MERCHANT_NOT_FOUND',
+        details: `Aucun marchand trouvé avec l'URL: ${shopUrl}`
+      });
+    }
+
+    console.log(`✅ Marchand trouvé: ${merchant.shopName} (ID: ${merchant._id})`);
+
+    let clientApiKey = null;
+    
+    if (merchant.getShippoApiKey) {
+      clientApiKey = merchant.getShippoApiKey();
+      console.log(`🔑 Marchand a clé API: ${clientApiKey ? 'Oui' : 'Non'}`);
+    }
+
+    // Déterminer quelle clé API utiliser
+    const apiKeyInfo = getApiKeyToUse(clientApiKey);
+    console.log(`🔑 Source clé API: ${apiKeyInfo.source} (Clé client valide: ${apiKeyInfo.isValidClientKey})`);
 
     // 1. Créer le label avec Shippo
     const shippoResponse = await fetch('https://api.goshippo.com/transactions/', {
       method: 'POST',
       headers: {
-        'Authorization': `ShippoToken ${process.env.SHIPPO_API_KEY}`,
+        'Authorization': `ShippoToken ${apiKeyInfo.apiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         rate: rateId,
         pickupPointId: relay_token,
         servicelevel: {
-            token: relay_token
+          token: relay_token
         },
         label_file_type: "PDF",
         async: false
@@ -63,32 +117,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     const transaction = await shippoResponse.json();
-    console.log("Transaction: ", transaction);
-    
-
-    
-    // Définir le chemin du fichier où tu veux sauvegarder
-    const filePath = path.join(process.cwd(), 'transaction_log.json');
-
-    // Convertir l'objet en JSON avec indentation pour lecture facile
-    const jsonData = JSON.stringify(transaction, null, 2);
-
-    // Écrire dans le fichier
-    fs.writeFile(filePath, jsonData, (err) => {
-      if (err) {
-        console.error('Erreur lors de l’écriture du fichier :', err);
-      } else {
-        console.log('Transaction enregistrée dans transaction_log.json');
-      }
+    console.log("📦 Transaction Shippo:", {
+      status: transaction.status,
+      object_id: transaction.object_id,
+      tracking: transaction.tracking_number,
+      carrier: transaction.rate_carrier,
+      amount: transaction.rate_amount
     });
 
-
-
     if (transaction.status !== 'SUCCESS') {
-      console.error('Erreur Shippo:', transaction.messages);
+      console.error('❌ Erreur Shippo:', transaction.messages);
+      
+      let errorCode = 'SHIPPO_API_ERROR';
+      if (shippoResponse.status === 401) {
+        errorCode = apiKeyInfo.source === 'client' ? 'CLIENT_API_KEY_INVALID' : 'DEFAULT_API_KEY_INVALID';
+      }
+      
       return res.status(400).json({
+        success: false,
         error: 'Erreur création du label',
-        details: transaction.messages
+        code: errorCode,
+        details: transaction.messages,
+        transaction_status: transaction.status
       });
     }
 
@@ -99,8 +149,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     if (existingShipment) {
+      console.warn(`⚠️ Shipment existe déjà pour ${shopUrl} - ${orderData.orderId}`);
       return res.status(409).json({
-        error: 'Un shipment existe déjà pour cette commande'
+        success: false,
+        error: 'Un shipment existe déjà pour cette commande',
+        code: 'SHIPMENT_ALREADY_EXISTS',
+        existingShipmentId: existingShipment._id
       });
     }
 
@@ -125,10 +179,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       labelUrl: transaction.label_url,
       shippingCost: parseFloat(transaction.rate_amount) || 0,
       currency: transaction.rate_currency || 'USD',
-      status: 'purchased'
+      status: 'purchased',
+      apiKeySource: apiKeyInfo.source, // Enregistrer la source de la clé
+      merchantId: merchant._id, // Stocker aussi l'ID du marchand
+      createdAt: new Date()
     };
 
     const shipment = await ShipmentModel.create(shipmentData);
+
+    console.log(`✅ Shipment créé avec clé ${apiKeyInfo.source}:`, {
+      shipmentId: shipment._id,
+      orderId: shipment.orderId,
+      tracking: shipment.trackingNumber,
+      apiKeySource: shipment.apiKeySource,
+      cost: shipment.shippingCost + ' ' + shipment.currency
+    });
 
     return res.status(200).json({
       success: true,
@@ -138,14 +203,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         trackingUrl: shipment.trackingUrl,
         labelUrl: shipment.labelUrl,
         carrier: shipment.carrier,
-        status: shipment.status
+        service: shipment.service,
+        shippingCost: shipment.shippingCost,
+        currency: shipment.currency,
+        status: shipment.status,
+        apiKeySource: shipment.apiKeySource
+      },
+      metadata: {
+        apiKeyUsed: apiKeyInfo.source,
+        clientHadKey: !!clientApiKey,
+        transactionId: transaction.object_id,
+        merchantId: merchant._id,
+        shopName: merchant.shopName,
+        timestamp: new Date().toISOString()
       }
     });
 
   } catch (error: any) {
-    console.error('Erreur création shipment:', error);
-    return res.status(500).json({
-      error: 'Erreur interne du serveur'
+    console.error('❌ Erreur création shipment:', error);
+    
+    // Déterminer le code d'erreur spécifique
+    let errorCode = 'INTERNAL_SERVER_ERROR';
+    let statusCode = 500;
+    
+    if (error.name === 'CastError') {
+      errorCode = 'INVALID_ID_FORMAT';
+      statusCode = 400;
+    } else if (error.code === 11000) {
+      errorCode = 'DUPLICATE_SHIPMENT';
+      statusCode = 409;
+    }
+    
+    return res.status(statusCode).json({
+      success: false,
+      error: 'Erreur interne du serveur',
+      code: errorCode,
+      details: error.message,
+      timestamp: new Date().toISOString()
     });
   }
 }

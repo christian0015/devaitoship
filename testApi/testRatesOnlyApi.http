@@ -1,6 +1,7 @@
 
 ### GetRAtes
-POST https://devaitoship.vercel.app/api/get_shipping_rates HTTP/1.1
+POST http://localhost:3000/api/get_shipping_rates HTTP/1.1
+# POST https://devaitoship.vercel.app/api/get_shipping_rates HTTP/1.1
 content-type: application/json
 
 {
@@ -26,7 +27,8 @@ content-type: application/json
 }
 
 ### GetRates
-POST https://devaitoship.vercel.app/api/get_shipping_rates HTTP/1.1
+POST http://localhost:3000/api/get_shipping_rates HTTP/1.1
+# POST https://devaitoship.vercel.app/api/get_shipping_rates HTTP/1.1
 content-type: application/json
 
 {

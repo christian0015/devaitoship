@@ -1,4 +1,4 @@
-// lib/models/shipmentModel.ts
+// src/lib/models/shipmentModel.ts
 import mongoose, { Schema, Document, Types } from 'mongoose';
 
 export interface IShipment extends Document {
@@ -50,6 +50,9 @@ export interface IShipment extends Document {
 
   // Statut simplifié
   status: 'created' | 'purchased' | 'transit' | 'delivered' | 'error';
+  
+  // NOUVEAU: Source de la clé API utilisée
+  apiKeySource: 'client' | 'default';
   
   // Timestamps
   createdAt: Date;
@@ -105,6 +108,14 @@ const shipmentSchema = new Schema<IShipment>(
       type: String, 
       enum: ['created', 'purchased', 'transit', 'delivered', 'error'],
       default: 'created'
+    },
+    
+    // NOUVEAU: Source de la clé API utilisée
+    apiKeySource: {
+      type: String,
+      enum: ['client', 'default'],
+      default: 'default',
+      required: true
     }
   },
   { 
@@ -118,5 +129,6 @@ shipmentSchema.index({ shopUrl: 1, orderId: 1 }, { unique: true });
 shipmentSchema.index({ shopUrl: 1, createdAt: -1 });
 shipmentSchema.index({ trackingNumber: 1 });
 shipmentSchema.index({ status: 1 });
+shipmentSchema.index({ apiKeySource: 1 }); // Nouvel index
 
 export const ShipmentModel = mongoose.models.Shipment || mongoose.model<IShipment>('Shipment', shipmentSchema);

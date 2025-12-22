@@ -5,7 +5,7 @@ Content-Type: application/json
 {
   "rateId": "a011e875ea08436fad2e996c46e54148",
   "relay_token": "colissimo_home",
-  "shopUrl": "https://asusx-shop.com",
+  "shopUrl": "https://asusx.devaito.com",
   "orderData": {
     "orderId": "CMD-2025-001",
     "orderNumber": "2025-001",
@@ -39,7 +39,7 @@ Content-Type: application/json
 {
   "rateId": "cba2f979e5504edbaf42284829440d41",
   "relay_token": "colissimo_pick_up_point",
-  "shopUrl": "https://asusx-shop.com",
+  "shopUrl": "https://asusx.devaito.com",
   "orderData": {
     "orderId": "CMD-2025-002",
     "orderNumber": "2025-002",

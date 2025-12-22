@@ -1,24 +1,3 @@
-// import clientPromise from '../mongo';
-// import { Merchant } from '../../types/merchant';
-
-// const COLLECTION = 'merchants';
-
-// export async function findMerchantByShop(shopUrl: string) {
-//   const db = (await clientPromise).db('devaito-shipping');
-//   return db.collection<Merchant>(COLLECTION).findOne({ shopUrl });
-// }
-
-// export async function createMerchant(merchant: Merchant) {
-//   const db = (await clientPromise).db('devaito-shipping');
-//   const result = await db.collection<Merchant>(COLLECTION).insertOne(merchant);
-//   return result.insertedId;
-// }
-
-// export async function updateMerchant(shopUrl: string, update: Partial<Merchant>) {
-//   const db = (await clientPromise).db('devaito-shipping');
-//   return db.collection<Merchant>(COLLECTION).updateOne({ shopUrl }, { $set: update });
-// }
-
 // lib/models/merchantModels.ts
 import mongoose, { Schema, Document } from 'mongoose';
 import { encrypt } from '../crypto';
@@ -47,25 +26,34 @@ export interface IDimensions {
   mass_unit: 'kg' | 'lb';
 }
 
+// Interface pour le comptage d'estimations mensuel
+export interface IEstimationCount {
+  monthYear: string; // Format "YYYY-MM"
+  count: number;
+  lastUpdated: Date;
+}
+
 export interface IMerchant extends Document {
   shopUrl: string;
   shopName: string;
   merchantName?: string;
   merchantEmail: string;
-  // merchantName?: string;
   apiToken: string;
   plan: 'free' | 'pro';
   lastLogin: Date;
-  webhookUrl?: string; // Pour les notifications
+  webhookUrl?: string;
 
   // NOUVEAUX CHAMPS OPTIONNELS
   shippingAddress?: IShippingAddress;
   defaultDimensions?: IDimensions;
   apiKey: string;
 
-  createdAt: Date;
-}
+  // NOUVEAU: Compteur d'estimations mensuelles
+  estimationCounts: IEstimationCount[];
 
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 const shippingAddressSchema = new Schema<IShippingAddress>({
   name: { type: String },
@@ -89,7 +77,11 @@ const dimensionsSchema = new Schema<IDimensions>({
   mass_unit: { type: String, enum: ['kg', 'lb'], default: 'kg' }
 });
 
-
+const estimationCountSchema = new Schema<IEstimationCount>({
+  monthYear: { type: String, required: true }, // Format "YYYY-MM"
+  count: { type: Number, required: true, default: 0 },
+  lastUpdated: { type: Date, default: Date.now }
+});
 
 const merchantSchema = new Schema<IMerchant>(
   {
@@ -97,9 +89,7 @@ const merchantSchema = new Schema<IMerchant>(
     shopName: { type: String, required: true },
     merchantName: { type: String },
     merchantEmail: { type: String, required: true },
-    // merchantName: { type: String },
-    // apiToken: { type: String, required: true },
-    apiToken: { type: String, required: true, set: encrypt }, // Utilisation du setter de chiffrement
+    apiToken: { type: String, required: true, set: encrypt },
     plan: { type: String, enum: ['free', 'pro'], default: 'free' },
     lastLogin: { type: Date, default: Date.now },
     webhookUrl: { type: String },
@@ -107,17 +97,26 @@ const merchantSchema = new Schema<IMerchant>(
     // Nouveaux champs optionnels
     shippingAddress: { type: shippingAddressSchema },
     defaultDimensions: { type: dimensionsSchema },
-    apiKey: { type: String }, // Utilisation du setter de chiffrement
+    apiKey: { type: String },
+
+    // NOUVEAU: Compteur d'estimations mensuelles
+    estimationCounts: {
+      type: [estimationCountSchema],
+      default: []
+    },
 
     createdAt: { type: Date, default: Date.now },
+    updatedAt: { type: Date, default: Date.now },
   },
-  { collection: 'devaitoMerchants' }
+  { 
+    collection: 'devaitoMerchants',
+    timestamps: true 
+  }
 );
 
-// NOUVELLE MÉTHODE: Récupérer la clé API Shippo du client
+// MÉTHODE: Récupérer la clé API Shippo du client
 merchantSchema.methods.getShippoApiKey = function(): string | null {
   try {
-    // Vérifier si la clé existe et a plus de 5 caractères
     if (this.apiKey && this.apiKey.trim().length > 5) {
       return this.apiKey.trim();
     }
@@ -125,6 +124,138 @@ merchantSchema.methods.getShippoApiKey = function(): string | null {
   } catch (error) {
     console.error('Erreur récupération Shippo API Key:', error);
     return null;
+  }
+};
+
+// MÉTHODE: Incrémenter le compteur d'estimations pour le mois courant
+merchantSchema.methods.incrementEstimationCount = async function() {
+  try {
+    const now = new Date();
+    const currentMonthYear = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+    
+    // Trouver l'entrée du mois courant
+    let monthEntry = this.estimationCounts.find(
+      (entry: IEstimationCount) => entry.monthYear === currentMonthYear
+    );
+    
+    if (monthEntry) {
+      monthEntry.count += 1;
+      monthEntry.lastUpdated = now;
+    } else {
+      // Ajouter une nouvelle entrée pour ce mois
+      this.estimationCounts.push({
+        monthYear: currentMonthYear,
+        count: 1,
+        lastUpdated: now
+      });
+    }
+    
+    // Nettoyer les anciennes entrées (garder seulement les 2 derniers mois)
+    const [currentYear, currentMonth] = currentMonthYear.split('-').map(Number);
+    
+    let monthBefore = currentMonth - 1;
+    let yearBefore = currentYear;
+    
+    if (monthBefore === 0) {
+      monthBefore = 12;
+      yearBefore -= 1;
+    }
+    
+    const previousMonth = `${yearBefore}-${monthBefore.toString().padStart(2, '0')}`;
+    const validMonths = [currentMonthYear, previousMonth];
+    
+    this.estimationCounts = this.estimationCounts.filter((entry: IEstimationCount) =>
+      validMonths.includes(entry.monthYear)
+    );
+    
+    this.updatedAt = now;
+    await this.save();
+    
+    return this.getEstimationCount();
+  } catch (error) {
+    console.error('Erreur incrémentation compteur estimations:', error);
+    return 0;
+  }
+};
+
+// MÉTHODE: Obtenir le nombre total d'estimations des 2 derniers mois
+merchantSchema.methods.getEstimationCount = function(): number {
+  try {
+    const now = new Date();
+    const currentMonthYear = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+    
+    const [currentYear, currentMonth] = currentMonthYear.split('-').map(Number);
+    
+    let monthBefore = currentMonth - 1;
+    let yearBefore = currentYear;
+    
+    if (monthBefore === 0) {
+      monthBefore = 12;
+      yearBefore -= 1;
+    }
+    
+    const previousMonth = `${yearBefore}-${monthBefore.toString().padStart(2, '0')}`;
+    const validMonths = [currentMonthYear, previousMonth];
+    
+    return this.estimationCounts
+      .filter((entry: IEstimationCount) => validMonths.includes(entry.monthYear))
+      .reduce((total: number, entry: IEstimationCount) => total + entry.count, 0);
+  } catch (error) {
+    console.error('Erreur calcul compteur estimations:', error);
+    return 0;
+  }
+};
+
+// MÉTHODE: Obtenir les statistiques d'estimations détaillées
+merchantSchema.methods.getEstimationStats = function(): {
+  totalLast2Months: number;
+  currentMonth: number;
+  previousMonth: number;
+  months: IEstimationCount[];
+} {
+  try {
+    const now = new Date();
+    const currentMonthYear = `${now.getFullYear()}-${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+    
+    const [currentYear, currentMonth] = currentMonthYear.split('-').map(Number);
+    
+    let monthBefore = currentMonth - 1;
+    let yearBefore = currentYear;
+    
+    if (monthBefore === 0) {
+      monthBefore = 12;
+      yearBefore -= 1;
+    }
+    
+    const previousMonth = `${yearBefore}-${monthBefore.toString().padStart(2, '0')}`;
+    const validMonths = [currentMonthYear, previousMonth];
+    
+    const validEntries = this.estimationCounts.filter((entry: IEstimationCount) =>
+      validMonths.includes(entry.monthYear)
+    );
+    
+    const currentMonthEntry = validEntries.find(
+      (entry: IEstimationCount) => entry.monthYear === currentMonthYear
+    );
+    
+    const previousMonthEntry = validEntries.find(
+      (entry: IEstimationCount) => entry.monthYear === previousMonth
+    );
+    
+    return {
+      totalLast2Months: validEntries.reduce((total: number, entry: IEstimationCount) => total + entry.count, 0),
+      currentMonth: currentMonthEntry ? currentMonthEntry.count : 0,
+      previousMonth: previousMonthEntry ? previousMonthEntry.count : 0,
+      months: validEntries
+    };
+  } catch (error) {
+    console.error('Erreur récupération stats estimations:', error);
+    return {
+      totalLast2Months: 0,
+      currentMonth: 0,
+      previousMonth: 0,
+      months: []
+    };
   }
 };
 
@@ -138,7 +269,6 @@ const MerchantModel = mongoose.models.Merchant || mongoose.model<IMerchant>('Mer
 // Méthodes CRUD
 export async function createMerchant(merchant: Partial<IMerchant>) {
   const doc = new MerchantModel(merchant);
-  // return doc.save();
   await doc.save();
   return doc;
 }
@@ -151,12 +281,10 @@ export async function findMerchantByShop(shopUrl: string) {
   return MerchantModel.findOne({ shopUrl }).exec();
 }
 
-// NOUVELLE MÉTHODE - Ajoutez celle-ci
 export async function findMerchantByEmail(email: string) {
   return MerchantModel.findOne({ merchantEmail: email }).exec();
 }
 
-// NOUVELLE MÉTHODE - Recherche par email ET shopUrl
 export async function findMerchantByEmailAndShop(email: string, shopUrl: string) {
   return MerchantModel.findOne({ 
     merchantEmail: email,

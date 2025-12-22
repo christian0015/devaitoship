@@ -1,7 +1,7 @@
 @hostname = localhost:3000
 @apiBase = http://{{hostname}}/api
 @shopId = 68c94bda80a0b01b112de19e
-@shopUrl = https://asusx-shop.com
+@shopUrl = https://asusx.devaito.com
 @customerEmail = jean.dupont@email.com
 @customerPhone = +33612345678
 

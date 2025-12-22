@@ -1,108 +1,147 @@
+// pages/admin/features/CheckTrackSection.tsx
 'use client';
 
 import { useState } from 'react';
 
 interface TrackingEvent {
-  status: string;
-  status_details: string;
-  location: string;
   date: string;
-  time: string;
+  description: string;
 }
 
 interface TrackingInfo {
-  tracking_number: string;
+  orderId: string;
+  trackingNumber: string;
   status: string;
   carrier: string;
-  eta: string;
+  estimatedDelivery: string;
   events: TrackingEvent[];
 }
 
 export default function CheckTrackSection({ userData }) {
   const [loading, setLoading] = useState(false);
+  const [orderId, setOrderId] = useState('');
   const [trackingNumber, setTrackingNumber] = useState('');
   const [trackingInfo, setTrackingInfo] = useState<TrackingInfo | null>(null);
   const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!trackingNumber.trim()) return;
+    
+    // Validation : au moins un champ doit être rempli
+    if (!orderId.trim() && !trackingNumber.trim()) {
+      setError('Veuillez remplir au moins un des champs');
+      return;
+    }
 
     setLoading(true);
     setError('');
     setTrackingInfo(null);
 
     try {
-      const response = await fetch('/api/trackPackage', {
+      const payload = {
+        orderId: orderId.trim(),
+        trackingNumber: trackingNumber.trim()
+      };
+
+      console.log("Appel API avec:", payload);
+      
+      const response = await fetch('/api/getOrder', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ tracking_number: trackingNumber })
+        body: JSON.stringify(payload)
       });
 
       if (!response.ok) {
-        throw new Error('Numéro de suivi introuvable');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Erreur lors de la recherche');
       }
 
       const data = await response.json();
-      setTrackingInfo(data);
-    } catch (err: any) {
-      // Simulation de données pour la démo
+      console.log("Data reçue:", data);
       
-      setError(err.message || 'Erreur lors du suivi, Au moins pour la demo');
-   
+      // Mapper la réponse du backend
       setTrackingInfo({
-        tracking_number: trackingNumber,
-        status: 'IN_TRANSIT',
-        carrier: 'Colissimo',
-        eta: '2025-08-25',
-        events: [
-          {
-            status: 'PICKED_UP',
-            status_details: 'Colis pris en charge',
-            location: 'Centre de tri - Paris',
-            date: '2025-08-22',
-            time: '09:15'
-          },
-          {
-            status: 'IN_TRANSIT',
-            status_details: 'En cours d\'acheminement',
-            location: 'Centre de tri - Lyon',
-            date: '2025-08-22',
-            time: '14:30'
-          },
-          {
-            status: 'OUT_FOR_DELIVERY',
-            status_details: 'En cours de livraison',
-            location: 'Agence de distribution - Marseille',
-            date: '2025-08-23',
-            time: '08:00'
-          }
-        ]
+        orderId: data.orderId,
+        trackingNumber: data.trackingNumber || trackingNumber,
+        status: data.status,
+        carrier: data.carrier || 'Unknown',
+        estimatedDelivery: data.estimatedDelivery || '',
+        events: data.events || []
       });
+
+    } catch (err: any) {
+      setError(err.message || 'Erreur lors du suivi');
+      
+      // Fallback pour la démo
+      if (err.message.includes('404') || err.message.includes('introuvable')) {
+        setTrackingInfo({
+          orderId: orderId || `CMD-${new Date().getFullYear()}-${Math.floor(Math.random() * 1000)}`,
+          trackingNumber: trackingNumber || 'XU032297055EE',
+          status: 'transit',
+          carrier: 'Chronopost',
+          estimatedDelivery: '2025-08-25',
+          events: [
+            {
+              date: '2025-08-22T09:15:00Z',
+              description: 'Colis pris en charge'
+            },
+            {
+              date: '2025-08-22T14:30:00Z',
+              description: 'En cours d\'acheminement'
+            }
+          ]
+        });
+      }
     } finally {
       setLoading(false);
     }
   };
 
+  const clearForm = () => {
+    setOrderId('');
+    setTrackingNumber('');
+    setError('');
+    setTrackingInfo(null);
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'DELIVERED': return '#28a745';
-      case 'OUT_FOR_DELIVERY': return '#ffc107';
-      case 'IN_TRANSIT': return '#007bff';
-      case 'PICKED_UP': return '#6f42c1';
+      case 'delivered': return '#28a745';
+      case 'transit': return '#007bff';
+      case 'created': return '#6f42c1';
+      case 'purchased': return '#ffc107';
+      case 'error': return '#dc3545';
       default: return '#6c757d';
     }
   };
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'DELIVERED': return 'Livré';
-      case 'OUT_FOR_DELIVERY': return 'En cours de livraison';
-      case 'IN_TRANSIT': return 'En transit';
-      case 'PICKED_UP': return 'Pris en charge';
+      case 'delivered': return 'Livré';
+      case 'transit': return 'En transit';
+      case 'created': return 'Créé';
+      case 'purchased': return 'Payé';
+      case 'error': return 'Erreur';
       default: return 'Inconnu';
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    if (!dateString) return 'Non disponible';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('fr-FR', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch {
+      return dateString;
     }
   };
 
@@ -111,25 +150,49 @@ export default function CheckTrackSection({ userData }) {
       <div className="checkTrackSection-header">
         <h1 className="checkTrackSection-title">Suivi de Colis</h1>
         <p className="checkTrackSection-subtitle">
-          Suivez l'état de vos expéditions en temps réel
+          Recherchez par numéro de commande ou numéro de suivi
         </p>
       </div>
 
       <div className="checkTrackSection-content">
         <div className="checkTrackSection-search">
           <form onSubmit={handleSubmit} className="checkTrackSection-form">
-            <div className="checkTrackSection-inputGroup">
-              <input
-                type="text"
-                placeholder="Entrez votre numéro de suivi"
-                value={trackingNumber}
-                onChange={(e) => setTrackingNumber(e.target.value)}
-                className="checkTrackSection-input"
-                required
-              />
+            <div className="checkTrackSection-inputs">
+              <div className="checkTrackSection-inputGroup">
+                <label className="checkTrackSection-label">
+                  <span className="checkTrackSection-labelText">Numéro de commande</span>
+                  <input
+                    type="text"
+                    placeholder="Ex: CMD-2025-001 ou 2025-001"
+                    value={orderId}
+                    onChange={(e) => setOrderId(e.target.value)}
+                    className="checkTrackSection-input"
+                  />
+                </label>
+              </div>
+              
+              <div className="checkTrackSection-separator">
+                <span className="checkTrackSection-separatorText">OU</span>
+              </div>
+              
+              <div className="checkTrackSection-inputGroup">
+                <label className="checkTrackSection-label">
+                  <span className="checkTrackSection-labelText">Numéro de suivi</span>
+                  <input
+                    type="text"
+                    placeholder="Ex: XU032297055EE ou FR123456789"
+                    value={trackingNumber}
+                    onChange={(e) => setTrackingNumber(e.target.value)}
+                    className="checkTrackSection-input"
+                  />
+                </label>
+              </div>
+            </div>
+            
+            <div className="checkTrackSection-actions">
               <button
                 type="submit"
-                disabled={loading || !trackingNumber.trim()}
+                disabled={loading || (!orderId.trim() && !trackingNumber.trim())}
                 className="checkTrackSection-button"
               >
                 {loading ? (
@@ -140,7 +203,15 @@ export default function CheckTrackSection({ userData }) {
                     <path d="m21 21-4.35-4.35" stroke="currentColor" strokeWidth="2"/>
                   </svg>
                 )}
-                {!loading && 'Suivre'}
+                {!loading && 'Rechercher'}
+              </button>
+              
+              <button
+                type="button"
+                onClick={clearForm}
+                className="checkTrackSection-button secondary"
+              >
+                Effacer
               </button>
             </div>
           </form>
@@ -155,18 +226,35 @@ export default function CheckTrackSection({ userData }) {
               {error}
             </div>
           )}
+          
+          <div className="checkTrackSection-info">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+              <path d="M12 16v-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              <circle cx="12" cy="8" r="1" fill="currentColor"/>
+            </svg>
+            <span>Remplissez au moins un des deux champs pour rechercher</span>
+          </div>
         </div>
 
         {trackingInfo && (
           <div className="checkTrackSection-results">
             <div className="checkTrackSection-summary">
               <div className="checkTrackSection-summaryHeader">
-                <h3 className="checkTrackSection-summaryTitle">
-                  Suivi: {trackingInfo.tracking_number}
-                </h3>
+                <div>
+                  <h3 className="checkTrackSection-summaryTitle">
+                    Commande: {trackingInfo.orderId}
+                  </h3>
+                  <p className="checkTrackSection-summarySubtitle">
+                    Suivi: {trackingInfo.trackingNumber}
+                  </p>
+                </div>
                 <div 
                   className="checkTrackSection-status"
-                  style={{ color: getStatusColor(trackingInfo.status) }}
+                  style={{ 
+                    color: getStatusColor(trackingInfo.status),
+                    backgroundColor: `${getStatusColor(trackingInfo.status)}15`
+                  }}
                 >
                   {getStatusText(trackingInfo.status)}
                 </div>
@@ -180,69 +268,95 @@ export default function CheckTrackSection({ userData }) {
                 <div className="checkTrackSection-detail">
                   <span className="checkTrackSection-detailLabel">Livraison estimée:</span>
                   <span className="checkTrackSection-detailValue">
-                    {new Date(trackingInfo.eta).toLocaleDateString('fr-FR')}
+                    {formatDate(trackingInfo.estimatedDelivery)}
                   </span>
                 </div>
               </div>
             </div>
 
-            <div className="checkTrackSection-timeline">
-              <h4 className="checkTrackSection-timelineTitle">Historique du suivi</h4>
-              <div className="checkTrackSection-events">
-                {trackingInfo.events.map((event, index) => (
-                  <div key={index} className="checkTrackSection-event">
-                    <div className="checkTrackSection-eventDot" 
-                         style={{ backgroundColor: getStatusColor(event.status) }}></div>
-                    <div className="checkTrackSection-eventContent">
-                      <div className="checkTrackSection-eventHeader">
-                        <h5 className="checkTrackSection-eventTitle">{event.status_details}</h5>
-                        <span className="checkTrackSection-eventTime">
-                          {event.date} à {event.time}
-                        </span>
+            {trackingInfo.events && trackingInfo.events.length > 0 && (
+              <div className="checkTrackSection-timeline">
+                <h4 className="checkTrackSection-timelineTitle">Historique du suivi</h4>
+                <div className="checkTrackSection-events">
+                  {trackingInfo.events.map((event, index) => (
+                    <div key={index} className="checkTrackSection-event">
+                      <div 
+                        className="checkTrackSection-eventDot"
+                        style={{ backgroundColor: getStatusColor(trackingInfo.status) }}
+                      ></div>
+                      <div className="checkTrackSection-eventContent">
+                        <div className="checkTrackSection-eventHeader">
+                          <h5 className="checkTrackSection-eventTitle">{event.description}</h5>
+                          <span className="checkTrackSection-eventTime">
+                            {formatDate(event.date)}
+                          </span>
+                        </div>
                       </div>
-                      <p className="checkTrackSection-eventLocation">{event.location}</p>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
-            <div className="checkTrackSection-map">
-              <div className="checkTrackSection-mapPlaceholder">
+            {(!trackingInfo.events || trackingInfo.events.length === 0) && (
+              <div className="checkTrackSection-noEvents">
                 <svg width="64" height="64" viewBox="0 0 24 24" fill="none">
-                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" 
-                        stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <circle cx="12" cy="10" r="3" stroke="currentColor" strokeWidth="2"/>
+                  <path d="M9 12l2 2 4-4" stroke="#00D084" strokeWidth="2"/>
+                  <circle cx="12" cy="12" r="10" stroke="#00D084" strokeWidth="2"/>
                 </svg>
-                <p>Carte de suivi interactive</p>
-                <small>Fonctionnalité à venir</small>
+                <p>Aucun événement de suivi disponible pour le moment</p>
+                <small>Les mises à jour apparaîtront ici dès que le transporteur les fournira</small>
               </div>
-            </div>
+            )}
           </div>
         )}
 
-        {/* Exemples de numéros de suivi */}
+        {/* Exemples de numéros */}
         <div className="checkTrackSection-examples">
-          <h4 className="checkTrackSection-examplesTitle">Numéros de test:</h4>
+          <h4 className="checkTrackSection-examplesTitle">Exemples à tester:</h4>
           <div className="checkTrackSection-examplesList">
-            <button 
-              onClick={() => setTrackingNumber('FR123456789')}
-              className="checkTrackSection-exampleButton"
-            >
-              FR123456789
-            </button>
-            <button 
-              onClick={() => setTrackingNumber('COL987654321')}
-              className="checkTrackSection-exampleButton"
-            >
-              COL987654321
-            </button>
-            <button 
-              onClick={() => setTrackingNumber('DPD456789123')}
-              className="checkTrackSection-exampleButton"
-            >
-              DPD456789123
-            </button>
+            <div className="checkTrackSection-exampleCategory">
+              <span className="checkTrackSection-exampleCategoryLabel">Commandes:</span>
+              <button 
+                onClick={() => {
+                  setOrderId('CMD-2025-001');
+                  setTrackingNumber('');
+                }}
+                className="checkTrackSection-exampleButton"
+              >
+                CMD-2025-001
+              </button>
+              <button 
+                onClick={() => {
+                  setOrderId('ORDER_123');
+                  setTrackingNumber('');
+                }}
+                className="checkTrackSection-exampleButton"
+              >
+                ORDER_123
+              </button>
+            </div>
+            <div className="checkTrackSection-exampleCategory">
+              <span className="checkTrackSection-exampleCategoryLabel">Trackings:</span>
+              <button 
+                onClick={() => {
+                  setTrackingNumber('XU032297055EE');
+                  setOrderId('');
+                }}
+                className="checkTrackSection-exampleButton"
+              >
+                XU032297055EE
+              </button>
+              <button 
+                onClick={() => {
+                  setTrackingNumber('XN051312529FR');
+                  setOrderId('');
+                }}
+                className="checkTrackSection-exampleButton"
+              >
+                XN051312529FR
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -277,30 +391,48 @@ export default function CheckTrackSection({ userData }) {
 
         .checkTrackSection-search {
           background: white;
-          border: 1px solid var(--color-border);
+          border: 1px solid #00D084;
           border-radius: 16px;
           padding: 2rem;
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
         }
 
         .checkTrackSection-form {
-          margin-bottom: 1rem;
+          display: flex;
+          flex-direction: column;
+          gap: 1.5rem;
+        }
+
+        .checkTrackSection-inputs {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
         }
 
         .checkTrackSection-inputGroup {
+          flex: 1;
+        }
+
+        .checkTrackSection-label {
           display: flex;
-          gap: 1rem;
-          align-items: stretch;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+
+        .checkTrackSection-labelText {
+          font-size: 0.9rem;
+          font-weight: 600;
+          color: var(--color-gray-dark);
         }
 
         .checkTrackSection-input {
-          flex: 1;
-          padding: 1rem 1.25rem;
-          border: 1px solid var(--color-border);
+          padding: 0.85rem 1.25rem;
+          border: 1px solid #00D084;
           border-radius: 12px;
-          font-size: 1.1rem;
+          font-size: 1rem;
           transition: all 0.2s ease;
           background: white;
+          width: 97%;
         }
 
         .checkTrackSection-input:focus {
@@ -309,31 +441,79 @@ export default function CheckTrackSection({ userData }) {
           box-shadow: 0 0 0 3px rgba(0, 208, 132, 0.1);
         }
 
+        .checkTrackSection-separator {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          position: relative;
+          height: 1px;
+          margin: 0.5rem 0;
+        }
+
+        .checkTrackSection-separator::before {
+          content: '';
+          position: absolute;
+          top: 50%;
+          left: 0;
+          right: 0;
+          height: 1px;
+          background: #00D084;
+        }
+
+        .checkTrackSection-separatorText {
+          position: relative;
+          background: white;
+          padding: 0 1rem;
+          font-size: 0.9rem;
+          font-weight: 600;
+          color: var(--color-gray-medium);
+        }
+
+        .checkTrackSection-actions {
+          display: flex;
+          gap: 1rem;
+          align-items: center;
+          padding: 0 200px;
+        }
+
         .checkTrackSection-button {
-          background: var(--color-accent);
+          background-color: #00D084;
           color: white;
           border: none;
-          padding: 1rem 2rem;
+          padding: 0.85rem 2rem;
           border-radius: 12px;
-          font-size: 1.1rem;
+          font-size: 1rem;
           font-weight: 600;
           cursor: pointer;
           transition: all 0.2s ease;
           display: flex;
           align-items: center;
           gap: 0.5rem;
-          min-width: 120px;
+          min-width: 140px;
           justify-content: center;
+          flex: 1;
+        }
+
+        .checkTrackSection-button.secondary {
+          background-color: transparent;
+          color: var(--color-gray-medium);
+          border: 1px solid #00D084;
         }
 
         .checkTrackSection-button:hover:not(:disabled) {
-          background: var(--color-accent-hover);
+          background-color: #00b875;
           transform: translateY(-1px);
         }
 
+        .checkTrackSection-button.secondary:hover:not(:disabled) {
+          background-color: var(--color-gray-light);
+          border-color: var(--color-gray-medium);
+        }
+
         .checkTrackSection-button:disabled {
-          opacity: 0.7;
+          opacity: 0.5;
           cursor: not-allowed;
+          transform: none;
         }
 
         .checkTrackSection-spinner {
@@ -359,11 +539,21 @@ export default function CheckTrackSection({ userData }) {
           display: flex;
           align-items: center;
           gap: 0.75rem;
+          margin-top: 1rem;
+        }
+
+        .checkTrackSection-info {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          font-size: 0.9rem;
+          color: var(--color-gray-medium);
+          margin-top: 1rem;
         }
 
         .checkTrackSection-results {
           background: white;
-          border: 1px solid var(--color-border);
+          border: 1px solid #00D084;
           border-radius: 16px;
           padding: 2rem;
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
@@ -372,41 +562,46 @@ export default function CheckTrackSection({ userData }) {
         .checkTrackSection-summary {
           margin-bottom: 2rem;
           padding-bottom: 2rem;
-          border-bottom: 1px solid var(--color-border);
+          border-bottom: 1px solid #00D084;
         }
 
         .checkTrackSection-summaryHeader {
           display: flex;
           justify-content: space-between;
-          align-items: center;
-          margin-bottom: 1rem;
+          align-items: flex-start;
+          margin-bottom: 1.5rem;
         }
 
         .checkTrackSection-summaryTitle {
           font-size: 1.5rem;
           font-weight: 600;
           color: var(--color-gray-dark);
+          margin: 0 0 0.25rem 0;
+        }
+
+        .checkTrackSection-summarySubtitle {
+          font-size: 1rem;
+          color: var(--color-gray-medium);
           margin: 0;
         }
 
         .checkTrackSection-status {
           font-size: 1.1rem;
           font-weight: 600;
-          padding: 0.5rem 1rem;
+          padding: 0.5rem 1.25rem;
           border-radius: 20px;
-          background: rgba(0, 208, 132, 0.1);
         }
 
         .checkTrackSection-summaryDetails {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-          gap: 1rem;
+          gap: 1.5rem;
         }
 
         .checkTrackSection-detail {
           display: flex;
           flex-direction: column;
-          gap: 0.25rem;
+          gap: 0.5rem;
         }
 
         .checkTrackSection-detailLabel {
@@ -444,7 +639,7 @@ export default function CheckTrackSection({ userData }) {
           top: 0;
           bottom: 0;
           width: 2px;
-          background: var(--color-border);
+          background: #00D084;
         }
 
         .checkTrackSection-event {
@@ -465,7 +660,8 @@ export default function CheckTrackSection({ userData }) {
           height: 12px;
           border-radius: 50%;
           border: 2px solid white;
-          box-shadow: 0 0 0 2px var(--color-border);
+          box-shadow: 0 0 0 2px #00D084;
+          z-index: 1;
         }
 
         .checkTrackSection-eventContent {
@@ -486,47 +682,38 @@ export default function CheckTrackSection({ userData }) {
           font-weight: 600;
           color: var(--color-gray-dark);
           margin: 0;
+          flex: 1;
         }
 
         .checkTrackSection-eventTime {
           font-size: 0.9rem;
           color: var(--color-gray-medium);
           font-weight: 500;
+          text-align: right;
+          min-width: 200px;
         }
 
-        .checkTrackSection-eventLocation {
-          color: var(--color-gray-medium);
-          margin: 0;
-        }
-
-        .checkTrackSection-map {
+        .checkTrackSection-noEvents {
           background: var(--color-gray-light);
           border-radius: 12px;
           padding: 3rem;
           text-align: center;
-        }
-
-        .checkTrackSection-mapPlaceholder {
           color: var(--color-gray-medium);
         }
 
-        .checkTrackSection-mapPlaceholder svg {
+        .checkTrackSection-noEvents svg {
           margin-bottom: 1rem;
         }
 
-        .checkTrackSection-mapPlaceholder p {
+        .checkTrackSection-noEvents p {
           font-size: 1.1rem;
           font-weight: 600;
           margin: 0 0 0.5rem 0;
         }
 
-        .checkTrackSection-mapPlaceholder small {
-          font-size: 0.9rem;
-        }
-
         .checkTrackSection-examples {
           background: white;
-          border: 1px solid var(--color-border);
+          border: 1px solid #00D084;
           border-radius: 16px;
           padding: 1.5rem;
           box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
@@ -541,13 +728,27 @@ export default function CheckTrackSection({ userData }) {
 
         .checkTrackSection-examplesList {
           display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+
+        .checkTrackSection-exampleCategory {
+          display: flex;
+          align-items: center;
           gap: 0.75rem;
           flex-wrap: wrap;
         }
 
+        .checkTrackSection-exampleCategoryLabel {
+          font-size: 0.9rem;
+          color: var(--color-gray-medium);
+          font-weight: 500;
+          min-width: 100px;
+        }
+
         .checkTrackSection-exampleButton {
           background: var(--color-gray-light);
-          border: 1px solid var(--color-border);
+          border: 1px solid #00D084;
           color: var(--color-gray-dark);
           padding: 0.5rem 1rem;
           border-radius: 8px;
@@ -558,9 +759,9 @@ export default function CheckTrackSection({ userData }) {
         }
 
         .checkTrackSection-exampleButton:hover {
-          background: var(--color-accent);
+          background: #00D084;
           color: white;
-          border-color: var(--color-accent);
+          border-color: #00D084;
         }
 
         @media (max-width: 768px) {
@@ -570,8 +771,12 @@ export default function CheckTrackSection({ userData }) {
             padding: 1.5rem;
           }
 
-          .checkTrackSection-inputGroup {
+          .checkTrackSection-actions {
             flex-direction: column;
+          }
+
+          .checkTrackSection-button {
+            width: 100%;
           }
 
           .checkTrackSection-summaryHeader {
@@ -588,6 +793,16 @@ export default function CheckTrackSection({ userData }) {
             flex-direction: column;
             align-items: flex-start;
             gap: 0.5rem;
+          }
+
+          .checkTrackSection-eventTime {
+            min-width: auto;
+            text-align: left;
+          }
+
+          .checkTrackSection-exampleCategory {
+            flex-direction: column;
+            align-items: flex-start;
           }
         }
       `}</style>

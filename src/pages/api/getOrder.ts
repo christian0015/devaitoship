@@ -1,39 +1,107 @@
-// getOrder.ts
+// pages/api/getOrder.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { OrderInfo } from '../../types/order';
-import * as orderModel from '../../lib/models/orderModel';
-import * as chippo from '../../lib/chippo';
+import { ShipmentModel } from '@/lib/models/shipmentModel';
+import * as shippo from '@/lib/chippo';
+import dbConnect from '../../lib/mongo';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  const { trackingNumber, orderId } = req.body as { trackingNumber?: string; orderId?: string };
+  console.log('[getOrder] input:', { trackingNumber, orderId });
+
+  if (!trackingNumber && !orderId) {
+    return res.status(422).json({ error: 'trackingNumber or orderId is required' });
+  }
 
   try {
-    const { trackingNumber, orderId } = req.body as { trackingNumber?: string; orderId?: string };
+    await dbConnect();
 
-    if (!trackingNumber && !orderId) return res.status(422).json({ error: 'trackingNumber or orderId is required' });
+    // Recherche locale
+    let shipment = await ShipmentModel.findOne({
+      $or: [
+        ...(trackingNumber ? [{ trackingNumber }] : []),
+        ...(orderId ? [{ orderId }] : []),
+      ],
+    });
+    // console.log('[getOrder] shipment local:', shipment);
 
-    // 1️⃣ Cherche d’abord dans MongoDB
-    let order: OrderInfo | null = null;
-    if (trackingNumber) order = await orderModel.findOrderByTracking(trackingNumber);
-    if (!order && orderId) order = await orderModel.findOrderById(orderId);
+    // Si pas trouvé localement, fetch Shippo
+    if (!shipment) {
+      try {
+        const shippoData = await shippo.getOrders(trackingNumber, orderId);
+        // console.log('[getOrder] shipment Shippo:', shippoData);
 
-    // 2️⃣ Si pas trouvé en local, fetch depuis Chippo et stocke
-    if (!order) {
-      const data = await chippo.getOrders(trackingNumber, orderId);
-      order = {
-        orderId: data.order_id,
-        trackingNumber: data.tracking_number,
-        status: data.status,
-        carrier: data.provider,
-        estimatedDelivery: data.estimated_delivery,
-        events: data.events?.map((e: any) => ({ date: e.date, description: e.description })) || [],
-      };
-      await orderModel.createOrder(order);
+        shipment = await ShipmentModel.create({
+          shopUrl: 'unknown', // à remplir si tu as la donnée
+          orderId: shippoData.order_id || 'unknown',
+          trackingNumber: shippoData.tracking_number || trackingNumber || 'unknown',
+          carrier: shippoData.provider,
+          service: shippoData.provider,
+          trackingUrl: '', // si tu as Shippo URL
+          labelUrl: '',
+          shippingCost: 0,
+          currency: 'USD',
+          status: mapShippoStatus(shippoData.status),
+          apiKeySource: 'default',
+          customer: { name: 'unknown' },
+          addressTo: {
+            name: 'unknown',
+            street1: 'unknown',
+            city: 'unknown',
+            state: 'unknown',
+            zip: '00000',
+            country: 'unknown',
+          },
+          items: [],
+        });
+      } catch (shippoErr: any) {
+        console.error('[getOrder] Shippo error:', shippoErr.response?.data || shippoErr.message);
+        return res.status(404).json({ error: 'Shipment not found in Shippo either' });
+      }
+    } else {
+      // Update local avec Shippo si possible
+      try {
+        const shippoData = await shippo.getOrders(trackingNumber, orderId);
+        const update: any = {
+          carrier: shippoData.provider,
+          estimatedDelivery: shippoData.estimated_delivery,
+          events: shippoData.events || [],
+          status: mapShippoStatus(shippoData.status),
+        };
+        await ShipmentModel.updateOne({ _id: shipment._id }, { $set: update });
+        shipment = { ...shipment.toObject(), ...update };
+      } catch (shippoErr) {
+        console.warn('[getOrder] Shippo fetch skipped:', shippoErr.message);
+      }
     }
 
-    res.status(200).json(order);
+    return res.status(200).json({
+  orderId: shipment.orderId,
+  trackingNumber: shipment.trackingNumber,
+  carrier: shipment.carrier,
+  status: shipment.status,
+  estimatedDelivery: shipment.estimatedDelivery,
+  events: shipment.events || [],
+  customer: shipment.customer,
+  addressTo: shipment.addressTo,
+  items: shipment.items,
+});
+
   } catch (error: any) {
-    console.error('Error getOrders:', error.message || error);
-    res.status(500).json({ error: 'Internal server error', details: error.message });
+    console.error('[getOrder] error:', error.message || error);
+    return res.status(500).json({ error: 'Internal server error', details: error.message });
+  }
+}
+
+// Helper
+function mapShippoStatus(status?: string) {
+  switch (status) {
+    case 'DELIVERED': return 'delivered';
+    case 'TRANSIT': return 'transit';
+    case 'ERROR': return 'error';
+    default: return 'created';
   }
 }
